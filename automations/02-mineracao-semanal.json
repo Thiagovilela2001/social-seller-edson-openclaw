@@ -1,0 +1,21 @@
+{
+  "name": "sse-mineracao-semanal",
+  "description": "Mineracao semanal de conhecimento via MCP da Clint. Instalado DESLIGADO de proposito: so habilite depois de CLINT_MCP_URL existir e o servidor MCP responder ao probe.",
+  "enabled": false,
+  "schedule": {
+    "kind": "cron",
+    "expr": "0 8 * * 1",
+    "tz": "America/Sao_Paulo"
+  },
+  "sessionTarget": "isolated",
+  "payload": {
+    "kind": "agentTurn",
+    "timeoutSeconds": 1800,
+    "message": "Rode a mineracao semanal de conhecimento e entregue o resumo final como resposta.\n\n1. Via MCP da Clint (somente leitura), leia as conversas de WhatsApp da ultima semana.\n2. Extraia, com citacao de origem:\n   - objecoes recorrentes que ainda nao estao na base de conhecimento\n   - perguntas que a base nao responde (lacunas)\n   - vocabulario e bordoes reais do Edson que o tom do agente ainda nao captura\n   - produtos, precos ou garantias citados que divergem da base atual\n3. Grave as descobertas como propostas em arquivo de revisao. NAO altere a base de conhecimento nem a persona por conta propria: mudanca de persona passa por humano.\n4. Responda com no maximo 10 itens, cada um com a origem.\n\nNunca copie dado sensivel (saude, financeiro pessoal, juridico) para a base nem para o relatorio. Se aparecer, registre apenas que apareceu e em qual conversa.\n\nResponda em portugues do Brasil."
+  },
+  "delivery": {
+    "mode": "announce",
+    "channel": "telegram",
+    "to": "${TELEGRAM_CHAT_ID}"
+  }
+}

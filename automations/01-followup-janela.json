@@ -1,0 +1,21 @@
+{
+  "name": "sse-followup-janela",
+  "description": "Follow-up da janela de 24h. Instalado DESLIGADO de proposito. Habilite com 'openclaw automations enable sse-followup-janela' depois de revisar o funil e o destino do Telegram.",
+  "enabled": false,
+  "schedule": {
+    "kind": "cron",
+    "expr": "0 9 * * *",
+    "tz": "America/Sao_Paulo"
+  },
+  "sessionTarget": "isolated",
+  "payload": {
+    "kind": "agentTurn",
+    "timeoutSeconds": 900,
+    "message": "Rode a rotina de follow-up da janela de 24h e entregue o relatorio final como resposta.\n\n1. Liste os leads em que TODAS estas condicoes valem:\n   - estagio em ('interessado', 'lead_quente')\n   - a ultima mensagem foi da pessoa (nao da conta)\n   - a janela de 24h expira nas proximas 4 horas\n   - opt_out = false, nao_perturbar = false, toques_enviados < 2\n2. Para cada um, decida UM toque curto de reativacao seguindo a skill social-seller-edson (jogada 'reagendar'): no maximo 2 mensagens, 3 linhas cada.\n3. Envie por ig_send_dm com proativo=true. Se a janela ja tiver expirado, NAO tente: registre como 'janela_perdida' e marque para captura de WhatsApp no proximo contato.\n4. Atualize toques_enviados, ultimo_toque_em e o resumo do lead.\n5. Responda com: quantos leads entraram na fila, quantos enviaram, quantos falharam e o motivo.\n\nNao crie oferta, preco ou link. Nao invente urgencia. Se um lead for A0 (reclamacao, crise, juridico, desconto, menor), NAO envie nada: escale para humano.\n\nResponda em portugues do Brasil."
+  },
+  "delivery": {
+    "mode": "announce",
+    "channel": "telegram",
+    "to": "${TELEGRAM_CHAT_ID}"
+  }
+}

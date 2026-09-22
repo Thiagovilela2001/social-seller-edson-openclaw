@@ -61,13 +61,14 @@ social-seller-edson-openclaw/
 - [x] **Skills** convertidas para o formato do OpenClaw — `python tools/check_skills.py` (19/19).
 - [x] **`SOUL.md`** no workspace, com o achado **F08** resolvido conforme a RN-008.
 - [x] **Config do agente** — `agent/openclaw.config.json` + `python tools/check_agent_config.py` (22/22).
+- [x] **Automations** — as 3 rotinas em `automations/` + `python tools/check_automations.py` (47/47).
 - [x] Suíte herdada rodando: **205 testes, OK**.
 - [x] Plano em [`PORT-PLAN.md`](PORT-PLAN.md) e lacunas em [`docs/GAPS.md`](docs/GAPS.md).
 
 ## Próximo passo
 
-Etapa 7 (as 3 automations). Depois: etapa 5 (ingress — depende de desenho, ver [`docs/GAPS.md`](docs/GAPS.md) G1/G2)
-e as credenciais para a integração real. Ver [`PORT-PLAN.md`](PORT-PLAN.md) → *Ordem de execução*.
+Etapa 5 (ingress — depende de desenho, ver [`docs/GAPS.md`](docs/GAPS.md) G1/G2) e as
+credenciais para a integração real. Ver [`PORT-PLAN.md`](PORT-PLAN.md) → *Ordem de execução*.
 
 ---
 

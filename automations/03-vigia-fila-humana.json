@@ -1,0 +1,25 @@
+{
+  "name": "sse-vigia-fila-humana",
+  "description": "Vigia da fila humana (RN-012). Payload 'command': roda o script sem chamar modelo. Silencio quando a fila esta em dia e imposto por CODIGO (o script imprime NO_REPLY), nao por instrucao ao modelo. Instalado DESLIGADO de proposito: confirme antes quem e o plantao.",
+  "enabled": false,
+  "schedule": {
+    "kind": "cron",
+    "expr": "*/15 * * * *",
+    "tz": "America/Sao_Paulo"
+  },
+  "sessionTarget": "isolated",
+  "payload": {
+    "kind": "command",
+    "timeoutSeconds": 120,
+    "argv": [
+      "python",
+      "${SOCIAL_SELLER_REPO}/ingress/fila-humana-sla.py",
+      "--silenciar-vazio"
+    ]
+  },
+  "delivery": {
+    "mode": "announce",
+    "channel": "telegram",
+    "to": "${TELEGRAM_CHAT_ID}"
+  }
+}

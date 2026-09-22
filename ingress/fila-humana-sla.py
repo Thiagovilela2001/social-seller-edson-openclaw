@@ -107,6 +107,16 @@ def main() -> int:
         action="store_true",
         help="não incrementa o contador de cobranças dos casos",
     )
+    parser.add_argument(
+        "--silenciar-vazio",
+        action="store_true",
+        help=(
+            "imprime NO_REPLY (token de silêncio do OpenClaw) em vez do texto quando "
+            "não há caso fora do SLA. Usado pelo payload 'command' da automation do "
+            "vigia: silêncio DETERMINÍSTICO, sem gastar LLM e sem depender de o modelo "
+            "lembrar de não falar. 'Alerta que sempre toca deixa de ser alerta.'"
+        ),
+    )
     args = parser.parse_args()
 
     try:
@@ -118,6 +128,13 @@ def main() -> int:
             file=sys.stderr,
         )
         return 1
+
+    # Silêncio é o resultado CORRETO quando não há atraso. Fila em dia não é notícia,
+    # e o token é lido pelo agendador do OpenClaw — nenhuma mensagem é postada.
+    # Sem esta flag, o texto de "fila em dia" sairia no Telegram a cada 15 minutos.
+    if args.silenciar_vazio and not relatorio["atrasados"]:
+        print("NO_REPLY")
+        return 0
 
     if args.json:
         print(json.dumps(relatorio, ensure_ascii=False))
