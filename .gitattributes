@@ -1,0 +1,20 @@
+# ============================================================
+# FIM DE LINHA — LF em tudo que é texto
+# ============================================================
+# Lição registrada no DEVELOPMENT.md do Hermes: script com shebang e CRLF
+# quebra no Linux com "bad interpreter: /usr/bin/env python3^M". O Windows
+# escreve CRLF por padrão, então a regra precisa estar no repositório, não no
+# hábito de quem commita.
+#
+# `* text=auto eol=lf`: o git detecta texto, normaliza para LF no armazenamento
+# e faz checkout em LF em qualquer sistema. Com isso, o mesmo arquivo tem os
+# mesmos bytes no Windows, no Linux e no CI.
+* text=auto eol=lf
+
+# Binários: nunca normalizar.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.pdf binary
+*.ico binary

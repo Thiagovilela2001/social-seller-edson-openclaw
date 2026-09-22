@@ -38,7 +38,10 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 ENGINE = ROOT / "engine" / "instagram_seller"
-STATE = ROOT / "state"
+# Portabilidade: a pasta de estado vem do ambiente quando existir. O fallback é
+# derivado de __file__ (movível), nunca de Path.home() — usar o home foi o bug
+# real do spike original, que no Windows apontava para o lugar errado.
+STATE = Path(os.getenv("IG_STATE_DIR") or (ROOT / "state"))
 STATE.mkdir(parents=True, exist_ok=True)
 
 os.environ.setdefault("IG_STATE_DB", str(STATE / "instagram-seller.db"))
@@ -298,8 +301,24 @@ def _handle(req: dict) -> None:
     _error(id_, -32601, f"Método não suportado: {method}")
 
 
+def _check() -> int:
+    """Modo `--check`: diagnóstico de portabilidade. Nunca imprime valor de
+    segredo — só se a variável está definida ou ausente."""
+    print(f"rules_version : {rules.RULES_VERSION}")
+    print(f"engine        : {ENGINE}")
+    print(f"python        : {sys.version.split()[0]} ({sys.platform})")
+    print(f"state_db      : {rules.state_db_path()}")
+    ks = rules.kill_switch_path()
+    print(f"kill_switch   : {ks} (ativo={'SIM' if ks.exists() else 'nao'})")
+    for var in ("IG_ACCESS_TOKEN", "IG_USER_ID", "META_APP_SECRET"):
+        print(f"{var:<14}: {'definida' if os.getenv(var) else 'AUSENTE'}")
+    return 0
+
+
 def main() -> int:
     _configurar_stdio()
+    if "--check" in sys.argv[1:]:
+        return _check()
     _log(f"servidor no ar · rules {rules.RULES_VERSION} · engine {ENGINE}")
     for linha in sys.stdin:
         linha = linha.strip()
