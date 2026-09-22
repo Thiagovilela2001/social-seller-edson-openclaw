@@ -34,7 +34,7 @@ reescrito. Uma regra muda em `rules.py` e vale para os dois runtimes.
 
 | Componente Hermes | Equivalente OpenClaw | Estado |
 |---|---|---|
-| `distribution.yaml` (profile install/update, `distribution_owned`) | Config de agente (`agents.entries`) + workspace + allowlist de skills | **a portar** |
+| `distribution.yaml` (profile install/update, `distribution_owned`) | Config de agente (`agents.entries`) + workspace + allowlist de skills | **adaptado** |
 | `plugin.yaml` + `register(ctx)` (plugin Python) | Servidor **MCP** (stdio) expondo as 3 tools | **adaptado** |
 | Hook `pre_tool_call` (JSON stdin/stdout, allowlist de shell) | Hook de plugin / tool policy do OpenClaw | **a portar** |
 | `config.yaml` → `plugins.enabled` | `plugins.entries` / registro do MCP | **a portar** |

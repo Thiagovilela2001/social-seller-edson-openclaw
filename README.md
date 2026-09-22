@@ -32,16 +32,19 @@ social-seller-edson-openclaw/
 │   ├── rules.py                   regras de negócio RN-001..RN-021 + estado (SQLite)
 │   ├── instagram_api.py           gate de envio — última barreira antes da rede
 │   ├── integracoes.py             Bling/Clint/WhatsApp — fail-closed (RN-019)
-│   ├── schemas.py                 schemas das 3 tools
-│   └── __init__.py                registro do plugin HERMES — inerte aqui (legado)
+│   └── schemas.py                 schemas das 3 tools
 ├── mcp/                       ADAPTADOR: servidor MCP (stdio) das 3 tools
-├── ingress/                   entrada: intake determinístico + proxy de borda
-├── skills/                    3 skills (serão adaptadas p/ metadata.openclaw)
+├── ingress/                   entrada: intake determinístico + vigia de SLA
+├── agent/                     CONFIG do agente OpenClaw
+│   ├── openclaw.config.json       fragmento (merclar, não substituir)
+│   └── workspace/
+│       ├── SOUL.md                personalidade (F08 resolvido pela RN-008)
+│       └── skills/                as 3 skills (o OpenClaw carrega daqui)
 ├── automations/               os 3 jobs em formato de automation do OpenClaw
-├── agent/                     config do agente OpenClaw (a validar)
-├── tests/                     suíte (205 testes) — harness a ajustar
+├── tools/                     verificadores: portabilidade, skills, config
+├── tests/                     suíte (205 testes)
 ├── reference/                 original Hermes congelado (não editar)
-├── docs/                      GAPS e notas de adaptação
+├── docs/                      GAPS, PORTABILITY e notas de adaptação
 └── state/                     estado local (kill switch, SQLite) — gitignored
 ```
 
@@ -57,13 +60,14 @@ social-seller-edson-openclaw/
 - [x] **Portabilidade** verificada — `python tools/check_portability.py` (6/6).
 - [x] **Skills** convertidas para o formato do OpenClaw — `python tools/check_skills.py` (19/19).
 - [x] **`SOUL.md`** no workspace, com o achado **F08** resolvido conforme a RN-008.
+- [x] **Config do agente** — `agent/openclaw.config.json` + `python tools/check_agent_config.py` (22/22).
 - [x] Suíte herdada rodando: **205 testes, OK**.
 - [x] Plano em [`PORT-PLAN.md`](PORT-PLAN.md) e lacunas em [`docs/GAPS.md`](docs/GAPS.md).
 
 ## Próximo passo
 
-Etapa 6 (config do agente: registro do MCP, workspace, allowlist de skills) e etapa 7
-(automations). Ver [`PORT-PLAN.md`](PORT-PLAN.md) → *Ordem de execução*.
+Etapa 7 (as 3 automations). Depois: etapa 5 (ingress — depende de desenho, ver [`docs/GAPS.md`](docs/GAPS.md) G1/G2)
+e as credenciais para a integração real. Ver [`PORT-PLAN.md`](PORT-PLAN.md) → *Ordem de execução*.
 
 ---
 

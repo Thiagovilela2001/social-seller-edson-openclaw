@@ -1,0 +1,40 @@
+{
+  "mcp": {
+    "servers": {
+      "instagram-seller": {
+        "enabled": true,
+        "transport": "stdio",
+        "command": "python",
+        "args": ["${SOCIAL_SELLER_REPO}/mcp/instagram_seller_mcp.py"],
+        "cwd": "${SOCIAL_SELLER_REPO}",
+        "env": {
+          "IG_STATE_DIR": "${SOCIAL_SELLER_REPO}/state",
+          "IG_ACCESS_TOKEN": "${IG_ACCESS_TOKEN}",
+          "IG_USER_ID": "${IG_USER_ID}",
+          "META_APP_SECRET": "${META_APP_SECRET}"
+        },
+        "connectionTimeoutMs": 10000,
+        "requestTimeoutMs": 30000,
+        "toolFilter": {
+          "include": ["ig_send_dm", "ig_private_reply", "ig_reply_comment"]
+        }
+      }
+    }
+  },
+  "agents": {
+    "entries": {
+      "social-seller": {
+        "name": "Social Seller Edson",
+        "description": "Atende, modera e vende no Instagram do Edson Burger, com freio para chamar humano.",
+        "workspace": "${SOCIAL_SELLER_REPO}/agent/workspace",
+        "skills": ["social-seller-edson", "moderacao", "atribuicao"],
+        "identity": {
+          "name": "Time do Edson",
+          "emoji": "🍔"
+        },
+        "humanDelay": { "mode": "natural" },
+        "typingMode": "message"
+      }
+    }
+  }
+}

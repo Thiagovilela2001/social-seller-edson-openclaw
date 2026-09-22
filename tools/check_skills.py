@@ -25,7 +25,9 @@ import sys
 from pathlib import Path
 
 RAIZ = Path(__file__).resolve().parents[1]
-SKILLS = RAIZ / "skills"
+# O OpenClaw carrega skills de <workspace>/skills (precedência mais alta). Por isso
+# elas moram dentro do workspace do agente, e não na raiz do repo.
+SKILLS = RAIZ / "agent" / "workspace" / "skills"
 
 # Custo de prompt: o OpenClaw injeta name+description de toda skill elegível.
 DESCRICAO_MAX_CHARS = 200
