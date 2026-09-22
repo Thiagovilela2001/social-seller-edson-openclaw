@@ -2,13 +2,8 @@
 name: atribuicao
 description: "Use ao registrar origem: ligar interação à publicação."
 version: 1.0.0
-author: "Gian — [SUA EMPRESA], Hermes Agent"
+author: "Gian — [SUA EMPRESA]"
 license: Commercial
-platforms: [linux, macos, windows]
-metadata:
-  hermes:
-    tags: [atribuicao, media-id, igsid, lead, metricas, organico]
-    related_skills: [social-seller-edson, moderacao]
 ---
 
 # Atribuição — de qual publicação veio o lead

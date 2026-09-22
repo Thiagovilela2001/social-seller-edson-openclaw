@@ -42,7 +42,7 @@ reescrito. Uma regra muda em `rules.py` e vale para os dois runtimes.
 | `cron/jobs.json` (3 jobs) | `automations` (cron + agentTurn + delivery) | **a portar** |
 | `deliver: telegram` (escalada A0) | Canal `telegram` + `message`/`conversations_send` | **a portar** |
 | `HERMES_HOME` / `ig-kill-switch` | `IG_KILL_SWITCH` + `IG_STATE_DB` apontando para `state/` | **adaptado** |
-| Frontmatter `metadata.hermes` das skills | `metadata.openclaw.requires` | **a portar** |
+| Frontmatter `metadata.hermes` das skills | removido — sem gating; `os` não restringe nada | **portado** |
 
 ### Como o estado é reapontado (sem tocar no motor)
 

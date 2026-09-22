@@ -2,13 +2,8 @@
 name: moderacao
 description: "Use em comentário público: triagem, moderação, protocolo A0."
 version: 1.0.0
-author: "Gian — [SUA EMPRESA], Hermes Agent"
+author: "Gian — [SUA EMPRESA]"
 license: Commercial
-platforms: [linux, macos, windows]
-metadata:
-  hermes:
-    tags: [moderacao, comentarios, a0, crise, meta-policy, lgpd]
-    related_skills: [social-seller-edson, atribuicao]
 ---
 
 # Moderação de comentários e protocolo A0

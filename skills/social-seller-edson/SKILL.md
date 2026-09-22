@@ -2,13 +2,8 @@
 name: social-seller-edson
 description: "Use ao atender no Instagram do Edson: estágio, jogada e tom."
 version: 1.0.0
-author: "Gian — [SUA EMPRESA], Hermes Agent"
+author: "Gian — [SUA EMPRESA]"
 license: Commercial
-platforms: [linux, macos, windows]
-metadata:
-  hermes:
-    tags: [instagram, social-selling, funil, edson-burger, few-shots]
-    related_skills: [moderacao, atribuicao]
 ---
 
 # Social Seller — jogadas, funil e poucos exemplos

@@ -52,13 +52,18 @@ social-seller-edson-openclaw/
 - [x] Pasta criada, isolada do Hermes.
 - [x] Motor copiado **byte-idêntico** (SHA256 conferido).
 - [x] Hermes verificado como **sem alterações** (`git status` limpo).
-- [x] git inicializado neste projeto (branch `main`).
-- [x] Plano de port documentado em [`PORT-PLAN.md`](PORT-PLAN.md).
-- [x] Lacunas sem equivalente em [`docs/GAPS.md`](docs/GAPS.md).
+- [x] Repositório **próprio** no GitHub (independente, `isFork: false`).
+- [x] Adaptador **MCP** com as 3 tools — `python mcp/smoke_test.py` (7/7).
+- [x] **Portabilidade** verificada — `python tools/check_portability.py` (6/6).
+- [x] **Skills** convertidas para o formato do OpenClaw — `python tools/check_skills.py` (19/19).
+- [x] **`SOUL.md`** no workspace, com o achado **F08** resolvido conforme a RN-008.
+- [x] Suíte herdada rodando: **205 testes, OK**.
+- [x] Plano em [`PORT-PLAN.md`](PORT-PLAN.md) e lacunas em [`docs/GAPS.md`](docs/GAPS.md).
 
 ## Próximo passo
 
-Ver [`PORT-PLAN.md`](PORT-PLAN.md) → seção *Ordem de execução*.
+Etapa 6 (config do agente: registro do MCP, workspace, allowlist de skills) e etapa 7
+(automations). Ver [`PORT-PLAN.md`](PORT-PLAN.md) → *Ordem de execução*.
 
 ---
 
