@@ -141,8 +141,15 @@ def _proibicoes_por_flag(decisao: rules.Decision) -> list[str]:
 
 
 def _log_falha(raw: str, exc: Exception) -> Path:
-    """Grava a falha COM o payload original, para não perder o evento."""
-    destino = rules.hermes_home() / "logs" / "instagram-intake-falhas.jsonl"
+    """Grava a falha COM o payload original, para não perder o evento.
+
+    Destino: `IG_LOG_DIR` quando definido (é o que o sidecar do OpenClaw usa, para
+    manter o log no perímetro do serviço); senão o `logs/` derivado do motor, que é
+    o comportamento histórico do Hermes. Assim a camada de entrada deixa de depender
+    do runtime antigo para saber onde escrever.
+    """
+    base = Path(os.getenv("IG_LOG_DIR") or (rules.hermes_home() / "logs"))
+    destino = base / "instagram-intake-falhas.jsonl"
     destino.parent.mkdir(parents=True, exist_ok=True)
     registro = {
         "at": datetime.now(rules.tz_brt()).isoformat(),

@@ -1,0 +1,24 @@
+# Exemplo de borda TLS para o ingress do Instagram.
+#
+# Por que só isto basta: o sidecar responde o GET de verificação da Meta
+# (hub.challenge) ele mesmo. O "proxy de borda" do Hermes existia só porque o
+# adapter dele aceitava apenas POST. Aqui sobra TLS.
+#
+# Troque o domínio, aponte o webhook da Meta para
+# https://SEU-DOMINIO/webhooks/instagram e rode: caddy run --config Caddyfile
+
+SEU-DOMINIO.example.com {
+	# Só a rota do webhook entra. Nada de expor /health para fora.
+	handle /webhooks/instagram* {
+		reverse_proxy 127.0.0.1:8080
+	}
+
+	# Qualquer outra rota: 404, sem vazar a existência do serviço.
+	handle {
+		respond 404
+	}
+
+	log {
+		output file /var/log/caddy/instagram-ingress.log
+	}
+}

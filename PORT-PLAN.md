@@ -38,7 +38,8 @@ reescrito. Uma regra muda em `rules.py` e vale para os dois runtimes.
 | `plugin.yaml` + `register(ctx)` (plugin Python) | Servidor **MCP** (stdio) expondo as 3 tools | **adaptado** |
 | Hook `pre_tool_call` (JSON stdin/stdout, allowlist de shell) | Hook de plugin / tool policy do OpenClaw | **a portar** |
 | `config.yaml` → `plugins.enabled` | `plugins.entries` / registro do MCP | **a portar** |
-| `config.yaml` → `platforms.webhook.routes.instagram` (`script:`, `prompt:`, `coalesce:`, `deliver:`) | `hooks.mappings` + `/hooks/agent` (transform JS/TS) | **não tem equivalente** (parcial) |
+| `config.yaml` → `platforms.webhook.routes.instagram` (`script:`, `prompt:`, `coalesce:`, `deliver:`) | `ingress/sidecar.py` → `/hooks/agent` | **adaptado** |
+| `deploy/edge_proxy.py` (proxy de borda) | **eliminado** — o sidecar responde o GET da Meta | **portado** (não é mais necessário) |
 | `cron/jobs.json` (3 jobs) | `automations` (cron + agentTurn/command + delivery) | **adaptado** |
 | `deliver: telegram` (escalada A0) | Canal `telegram` + `message`/`conversations_send` | **a portar** |
 | `HERMES_HOME` / `ig-kill-switch` | `IG_KILL_SWITCH` + `IG_STATE_DB` apontando para `state/` | **adaptado** |

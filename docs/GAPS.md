@@ -18,8 +18,12 @@ serviço externo.
 
 **Correlato:** é o achado **F06** do Parecer, já registrado como *não implementado*.
 
-**Decisão pendente:** buffer no nosso ingress × aceitar N runs × verificar se há primitiva na
-versão instalada.
+**RESOLVIDO (etapa 5)** — e resolvido de forma **diferente**, com motivo: o intake trata
+**um** evento por execução e **descarta lote ambíguo**. Fundir N comentários num payload
+faria o intake jogar todos fora. Então a coalescência virou **ordenação**: no máximo uma
+execução por remetente, o resto em fila, com janela de rajada antes de drenar o próximo.
+Nenhum evento perdido, nenhuma execução concorrente da mesma pessoa. Ver
+`ingress/sidecar.py` (classe `Coalescer`) e `tests/test_ingress.py`.
 
 ---
 
@@ -41,7 +45,13 @@ roda como script de rota. Opções:
 - **B:** reescrever o intake como transform JS/TS. **Rejeitada:** duplicaria o motor de regras em
   outra linguagem — exatamente o que o projeto proíbe.
 
-**Estado:** decisão A registrada; implementação **a portar** (etapa 5).
+**RESOLVIDO (etapa 5)** — opção **A**: `ingress/sidecar.py` recebe o webhook, roda o intake
+como subprocesso (contrato idêntico ao do Hermes: stdin → stdout, `[SILENT]` descarta) e
+entrega o payload enriquecido ao `/hooks/agent`. O intake **não** foi reescrito.
+
+**Ganho colateral:** como o sidecar responde o GET de verificação da Meta, o proxy de
+borda do Hermes (`deploy/edge_proxy.py`) **deixou de existir** — ele só existia porque o
+adapter do Hermes aceitava apenas POST. Sobrou TLS. Ver `ingress/Caddyfile.example`.
 
 ---
 

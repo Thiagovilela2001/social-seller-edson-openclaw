@@ -62,13 +62,16 @@ social-seller-edson-openclaw/
 - [x] **`SOUL.md`** no workspace, com o achado **F08** resolvido conforme a RN-008.
 - [x] **Config do agente** — `agent/openclaw.config.json` + `python tools/check_agent_config.py` (22/22).
 - [x] **Automations** — as 3 rotinas em `automations/` + `python tools/check_automations.py` (47/47).
-- [x] Suíte herdada rodando: **205 testes, OK**.
+- [x] **Ingress** — `ingress/sidecar.py` + `python -m unittest tests.test_ingress` (22/22).
+- [x] Suíte herdada rodando: **205 testes, OK** (agora **227**, com o ingress).
 - [x] Plano em [`PORT-PLAN.md`](PORT-PLAN.md) e lacunas em [`docs/GAPS.md`](docs/GAPS.md).
 
 ## Próximo passo
 
-Etapa 5 (ingress — depende de desenho, ver [`docs/GAPS.md`](docs/GAPS.md) G1/G2) e as
-credenciais para a integração real. Ver [`PORT-PLAN.md`](PORT-PLAN.md) → *Ordem de execução*.
+Só falta o que depende de fora: **credenciais** (Meta, Telegram, Bling, Clint) para a
+integração real, a **decisão sobre `sessionKey` por lead** (`ingress/README.md`), e as
+três decisões abertas — **D6** (`hermes_home()`), **LICENSE** e a política do `reference/`.
+Ver [`PORT-PLAN.md`](PORT-PLAN.md) → *Ordem de execução*.
 
 ---
 
