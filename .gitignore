@@ -10,7 +10,10 @@ auth.json
 # ============================================================
 # ESTADO LOCAL (D3) — kill switch, SQLite, logs
 # ============================================================
-state/
+# `state/` precisa da forma `state/*` + negacao: excluir o DIRETORIO inteiro
+# torna impossivel re-incluir um arquivo dentro dele (git sobe a arvore,
+# nao desce). Com `state/` o .gitkeep nunca seria versionado.
+state/*
 !state/.gitkeep
 logs/
 
