@@ -63,15 +63,19 @@ social-seller-edson-openclaw/
 - [x] **Config do agente** — `agent/openclaw.config.json` + `python tools/check_agent_config.py` (22/22).
 - [x] **Automations** — as 3 rotinas em `automations/` + `python tools/check_automations.py` (47/47).
 - [x] **Ingress** — `ingress/sidecar.py` + `python -m unittest tests.test_ingress` (22/22).
-- [x] Suíte herdada rodando: **205 testes, OK** (agora **227**, com o ingress).
-- [x] Plano em [`PORT-PLAN.md`](PORT-PLAN.md) e lacunas em [`docs/GAPS.md`](docs/GAPS.md).
+- [x] **Espinha dorsal v3** — `capacidades.py` (escada da §02 + contrato de ferramentas) + `tests/test_capacidades.py` (31/31).
+- [x] Suíte herdada rodando: **205 testes** (agora **258**, com ingress e capacidades).
+- [x] Plano em [`PORT-PLAN.md`](PORT-PLAN.md), lacunas em [`docs/GAPS.md`](docs/GAPS.md)
+      e inventário da v3 em [`docs/V3-INVENTARIO.md`](docs/V3-INVENTARIO.md).
 
 ## Próximo passo
 
-Só falta o que depende de fora: **credenciais** (Meta, Telegram, Bling, Clint) para a
-integração real, a **decisão sobre `sessionKey` por lead** (`ingress/README.md`), e as
-três decisões abertas — **D6** (`hermes_home()`), **LICENSE** e a política do `reference/`.
-Ver [`PORT-PLAN.md`](PORT-PLAN.md) → *Ordem de execução*.
+O que a v3 exige está mapeado em [`docs/V3-INVENTARIO.md`](docs/V3-INVENTARIO.md).
+**Quase tudo depende de credencial, contrato de fornecedor ou decisão de governança** — não de
+código. O que não depende já está feito (a espinha dorsal).
+
+Falta ainda: a decisão sobre `sessionKey` por lead, **D6** (`hermes_home()`), **LICENSE** e a
+política do `reference/`.
 
 ---
 

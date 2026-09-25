@@ -35,9 +35,18 @@ class BaseRegras(unittest.TestCase):
         self._tmp.cleanup()
 
     @staticmethod
-    def epoch_brt(hour: int, minute: int = 0, day: int = 22) -> float:
-        """Epoch de um horário em BRT (UTC-03:00)."""
-        return datetime(2026, 9, day, hour, minute, tzinfo=rules.tz_brt()).timestamp()
+    def epoch_brt(hour: int, minute: int = 0, day: int | None = None) -> float:
+        """Epoch de hoje às `hour` BRT — ancorado no dia REAL.
+
+        DEFEITO CORRIGIDO: era `datetime(2026, 9, day, ..., day=22)`. Os testes
+        gravam o inbound "às 10h" numa data FIXA, e a janela de 24h é medida
+        contra o relógio real — a suíte passava só enquanto o mundo estivesse em
+        22/09/2026. O mesmo defeito existe no repositório Hermes de origem.
+        """
+        base = rules.now_brt().replace(hour=hour, minute=minute, second=0, microsecond=0)
+        if day is not None:
+            base = base.replace(day=day)
+        return base.timestamp()
 
 
 # ---------------------------------------------------------------------------

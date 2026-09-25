@@ -85,7 +85,18 @@ Resultado: o motor roda igual, gravando no novo perímetro.
 | D3 | Estado em `state/`, via env | Não edita o motor e mantém o novo perímetro |
 | D4 | Cópia em vez de symlink para o Hermes | Portabilidade (Windows/git) e independência do repo antigo |
 
-## 5. Em aberto
+## 6. Escopo v3.0
+
+A ampliação do Documento Mestre v3.0 (§01–§35) está mapeada em
+[`docs/V3-INVENTARIO.md`](docs/V3-INVENTARIO.md), item por item, com o bloqueador real de cada
+frente. Resumo: das 15 frentes, **14 dependem de credencial, contrato de fornecedor, escopo de
+plataforma ou decisão de governança** — não de código. A única que não depende de terceiro é o
+contrato de capacidades/ferramentas, e é o que este repositório entrega em `capacidades.py`.
+
+A escada da §02 (*API existente ≠ acesso concedido ≠ ferramenta implementada ≠ dado consultado
+≠ ação autorizada ≠ produção liberada*) virou invariante de estrutura, não comentário.
+
+## 7. Em aberto
 
 - **Canal nativo do Instagram:** o OpenClaw não tem um. A entrada continua pelo webhook; a
   saída continua no nosso `instagram_api.py`. Confirmar desenho do ingress.

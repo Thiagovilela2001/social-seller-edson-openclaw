@@ -69,17 +69,19 @@ def imports_de(caminho: Path) -> set[str]:
 def checar_imports() -> None:
     permitidos = set(getattr(sys, "stdlib_module_names", set())) | LOCAIS | {"__future__"}
     permitidos |= {p.stem for p in ENGINE.glob("*.py")}
+    permitidos.add("capacidades")  # modulo da espinha dorsal, na raiz
 
     terceiros: dict[str, set[str]] = {}
-    for pasta in (ENGINE, INGRESS, MCP):
-        for arquivo in sorted(pasta.glob("*.py")):
-            for nome in imports_de(arquivo):
-                if nome not in permitidos:
-                    terceiros.setdefault(nome, set()).add(arquivo.name)
+    entradas = [p for pasta in (ENGINE, INGRESS, MCP) for p in sorted(pasta.glob("*.py"))]
+    entradas += sorted(RAIZ.glob("capacidades.py"))
+    for arquivo in entradas:
+        for nome in imports_de(arquivo):
+            if nome not in permitidos:
+                terceiros.setdefault(nome, set()).add(arquivo.name)
 
     checar(
         not terceiros,
-        "nenhum import de terceiro em engine/, ingress/ e mcp/",
+        "nenhum import de terceiro em engine/, ingress/, mcp/ e capacidades.py",
     )
     for nome, arquivos in terceiros.items():
         print(f"    TERCEIRO: {nome} <- {', '.join(sorted(arquivos))}")

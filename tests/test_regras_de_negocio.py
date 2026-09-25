@@ -65,8 +65,22 @@ class BaseRN(unittest.TestCase):
         return bool(self.chamadas)
 
     @staticmethod
-    def epoch_brt(hour: int, minute: int = 0, day: int = 22) -> float:
-        return datetime(2026, 9, day, hour, minute, tzinfo=rules.tz_brt()).timestamp()
+    def epoch_brt(hour: int, minute: int = 0, day: int | None = None) -> float:
+        """Hoje às `hour` BRT — ancorado no dia REAL, não numa data fixa.
+
+        DEFEITO CORRIGIDO: isto era `datetime(2026, 9, day, hour, ...)` com
+        `day=22`. Os testes gravam o inbound "às 10h" e a janela de 24h é medida
+        contra o relógio real — então a suíte passava só enquanto o mundo ainda
+        estivesse em 22/09/2026 e quebrava no dia seguinte com "Janela de 24h
+        expirada". Suíte que expira com o calendário não prova nada: prova que
+        ontem era ontem.
+
+        O mesmo defeito existe no repositório Hermes de origem (`tests/`).
+        """
+        base = rules.now_brt().replace(hour=hour, minute=minute, second=0, microsecond=0)
+        if day is not None:
+            base = base.replace(day=day)
+        return base.timestamp()
 
     def decidir(self, texto: str, igsid: str = "lead") -> list[rules.Bloqueio]:
         return rules.avaliar_envio(texto=texto, igsid=igsid)
