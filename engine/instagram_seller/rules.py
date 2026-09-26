@@ -38,6 +38,12 @@ from typing import Any, Iterable, Optional
 #
 # 1.x -> 2.0.0: entrou a seção REGRAS DE NEGÓCIO (REGRAS-DE-NEGOCIO.md), com os
 # identificadores RN-* carimbados em cada bloqueio de envio.
+# 2.3.0 -> 2.4.0: entradas RN-022 (afirmação sem fonte — extensão da RN-019
+#   para contextos além de status de pedido), RN-023 (canal proibido para certas
+#   ações: TikTok Shop e cobrança por WhatsApp), RN-024 (semântica de status
+#   respeitada: pedido finished ≠ parcelas pagas, etc.) e RN-025 (coordenação
+#   de contatos: ownership por caso para evitar toque simultâneo de múltiplas
+#   fontes).
 # 2.2.0 -> 2.3.0: parecer OpenClaw. Entram a RN-020 (vínculo de identidade antes da
 #   ação) e a RN-021 (efeito externo com resultado desconhecido), e são corrigidos os
 #   achados F01 (privada usava a chamada da pública), F02 (identidade vazia nas rotas
@@ -48,7 +54,9 @@ from typing import Any, Iterable, Optional
 # | sempre), com `sob_pergunta` como padrão.
 # 2.0.0 -> 2.1.0: entrou a seção de PROTEÇÃO DE DADOS (RN-014..RN-018) — prazo de
 # guarda por tabela, expurgo automático, minimização do texto e direito do titular.
-RULES_VERSION = "2.3.0"
+# 2.4.0 -> 2.4.1: entrou a RN-025 (coordenacao de contatos: ownership por caso
+#   para evitar toque simultaneo de multiplas fontes no mesmo lead).
+RULES_VERSION = "2.4.1"
 
 # ---------- janelas e limites (PDF §05 e docs/05 §2) ----------
 DM_WINDOW_SECONDS = 24 * 60 * 60
@@ -100,6 +108,12 @@ def state_db_path() -> Path:
 
 def kill_switch_path() -> Path:
     return Path(os.getenv("IG_KILL_SWITCH") or (hermes_home() / "ig-kill-switch"))
+
+
+def state_dir() -> Path:
+    """Diretorio de estado (subdiretorio 'state'). Respeita IG_STATE_DIR; fallback em hermes_home()/state."""
+    base = os.getenv("IG_STATE_DIR") or str(hermes_home())
+    return Path(base) / "state"
 
 
 # ---------------------------------------------------------------------------
@@ -727,6 +741,49 @@ CREATE TABLE IF NOT EXISTS exclusoes (
     at          REAL NOT NULL,
     motivo      TEXT,
     contagens   TEXT
+);
+
+-- =====================================================================
+-- IDENTIDADE E VÍNCULO (Documento Mestre v3 §07-§08)
+-- =====================================================================
+
+-- Identidades com namespace de plataforma. O id_interno (UUID) é o ponto de
+-- ancoragem estável; id_externo pode mudar. Namespace evita colisão entre
+-- plataformas (IGSID do Instagram ≠ ID do YouTube).
+CREATE TABLE IF NOT EXISTS identidades (
+    id_interno  TEXT PRIMARY KEY,
+    plataforma  TEXT NOT NULL,
+    id_externo  TEXT NOT NULL,
+    namespace_id TEXT NOT NULL,
+    criado_em   TEXT NOT NULL,
+    atualizado_em TEXT NOT NULL
+);
+
+-- Vínculos entre identidade e responsável. CPF/documento: SEMPRE em hash.
+-- Nunca em texto limpo, nunca em log.
+CREATE TABLE IF NOT EXISTS vinculos (
+    id_interno          TEXT NOT NULL,
+    tipo                TEXT NOT NULL,
+    documento_hash      TEXT NOT NULL,
+    plataforma_origem   TEXT NOT NULL,
+    verificado_em       TEXT,
+    fonte_verificacao   TEXT,
+    metadata_json       TEXT,
+    PRIMARY KEY (id_interno, tipo)
+);
+
+-- RN-025 — Coordenacao de contatos (Documento Mestre v3 §28).
+-- Ownership pessimista: primeiro a tocar obtem a reserva do canal.
+-- A PK (id_interno, canal) garante que cada canal tem um dono por vez.
+CREATE TABLE IF NOT EXISTS ownership (
+    id_interno      TEXT NOT NULL,
+    fonte           TEXT NOT NULL,
+    canal           TEXT NOT NULL,
+    reservado_em    TEXT NOT NULL,
+    expira_em       TEXT NOT NULL,
+    estado          TEXT NOT NULL DEFAULT 'contato_em_andamento',
+    trace_id        TEXT,
+    PRIMARY KEY (id_interno, canal)
 );
 """
 
@@ -2077,6 +2134,8 @@ def avaliar_envio(
     acao: str = "",
     exige_acao: bool = False,
     agora: Optional[float] = None,
+    execution_id: str = "",
+    id_interno: str = "",   # UUID da identidade do lead (v3 §07)
 ) -> list[Bloqueio]:
     """Todas as regras de negócio que antecedem um envio. Ordem = gravidade.
 
@@ -2223,6 +2282,57 @@ def avaliar_envio(
                 )
             )
 
+    # RN-VINCULO — ação financeira exige vínculo de responsável verificado (v3 §07-§08).
+    # O `id_interno` da identidade é a chave; para leads sem identidade registrada
+    # (igsid direto, sem namespace), bloqueia por igsid como proxy até ter UUID.
+    if acao and id_interno:
+        try:
+            from . import vinculo_resolver
+        except ImportError:
+            import vinculo_resolver
+
+        bloqueio_vinculo = vinculo_resolver.check_vinculo_financeiro(acao, id_interno)
+        if bloqueio_vinculo:
+            bloqueios.append(bloqueio_vinculo)
+        elif e_acao_financeira(acao):
+            bloqueio_resp = vinculo_resolver.check_vinculo_responsavel(id_interno)
+            if bloqueio_resp:
+                bloqueios.append(bloqueio_resp)
+
+    # RN-025 — coordenacao de contatos: canal reservado por outra fonte.
+    # O `id_interno` e a ancora; sem ele, a checagem e pulada (compatibilidade).
+    # A fonte e inferida de `execution_id` quando presente (prefixo "ss-" = social-seller).
+    if id_interno and canal:
+        try:
+            from . import coordenador
+        except ImportError:  # pragma: no cover
+            import coordenador
+
+        fonte = "social-seller"  # default; prefixo do execution_id e mais preciso
+        if execution_id and execution_id.startswith("ss-"):
+            fonte = "social-seller"
+        elif execution_id and execution_id.startswith("clint-"):
+            fonte = "clint"
+        elif execution_id and execution_id.startswith("educzz-"):
+            fonte = "educzz"
+        elif execution_id and execution_id.startswith("lia-"):
+            fonte = "lia"
+        elif execution_id and execution_id.startswith("yampi-"):
+            fonte = "yampi"
+
+        bloqueio_coord = coordenador.bloqueio_coordenacao(id_interno, fonte, canal)
+        if bloqueio_coord:
+            bloqueios.append(bloqueio_coord)
+
+    # Log de cada decisao tomada. IGSID nao entra aqui para evitar PII no log.
+    if not execution_id:
+        return bloqueios
+    if bloqueios:
+        for bloqueio in bloqueios:
+            log_decisao(execution_id, acao, "bloqueado", bloqueio.regra)
+    else:
+        log_decisao(execution_id, acao, "liberado", "ok")
+
     return bloqueios
 
 
@@ -2318,6 +2428,29 @@ def mascarar_id(igsid: str, *, tamanho: int = 6) -> str:
     if not igsid:
         return "-"
     return "…" + hashlib.sha256(igsid.encode("utf-8")).hexdigest()[:tamanho]
+
+
+def log_decisao(
+    execution_id: str,
+    acao: str,
+    resultado: str,
+    regra: str,
+) -> None:
+    """Escreve uma decisao em state/decisoes.jsonl. Nunca vaza texto do cliente."""
+    linha = {
+        "at": now_brt().isoformat(),
+        "execution_id": execution_id,
+        "acao": acao,
+        "resultado": resultado,
+        "regra": regra,
+    }
+    try:
+        dest = state_dir() / "decisoes.jsonl"
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        with dest.open("a", encoding="utf-8") as fh:
+            fh.write(json.dumps(linha, ensure_ascii=False) + "\n")
+    except OSError:
+        pass
 
 
 def redigir(texto: str, *, limite: int = 160) -> str:
@@ -2770,6 +2903,10 @@ class VinculoInsuficiente(PermissionError):
 # resultado desconhecido". Esta é a regra que sustenta essa distinção.
 
 RN_RECONCILIACAO = "RN-021"
+RN_AFIRMACAO_SEM_FONTE = "RN-022"
+RN_CANAL_PROIBIDO = "RN-023"
+RN_SEMANTICA_STATUS = "RN-024"
+RN_COORDENACAO_CONTATOS = "RN-025"
 
 RECONCILIACAO_ESTADOS = ("incerto", "enviado", "nao_enviado")
 
@@ -2855,6 +2992,72 @@ def tem_interacao_recente(igsid: str, *, janela_segundos: int = DM_WINDOW_SECOND
             (igsid, corte),
         ).fetchone()
     return linha is not None
+
+
+# ===========================================================================
+# RN-022 — Afirmação de fonte: sem verificação, sem afirmação
+#
+# Origem: §09 do Documento Mestre v3
+# "Fonte não consultada ≠ fonte vazia ≠ dado inexistente"
+#
+# O que esta regra proíbe:
+# - "Seu pedido já foi enviado" sem consultar Bling
+# - "Você parcelou em 3x" sem consultar LIA
+# - "Você comprou o curso" sem consultar Yampi/Eduzz
+#
+# O que esta regra permite:
+# - "Não consigo ver isso daqui. Passo pro time?"
+# - "Você pode verificar na área do aluno."
+# - Encaminhar para humano com contexto
+# ===========================================================================
+
+
+# ===========================================================================
+# RN-023 — Canal proibido para certas ações
+#
+# Origem: §17, §27 do Documento Mestre v3
+#
+# TikTok Shop:
+# - Não desviar transação para fora da plataforma (regra brasileira)
+# - Não pedir dado pessoal beyond o necessário
+# - Não criar taxa adicional
+#
+# WhatsApp:
+# - Cobrança de dívida bloqueada por política de plataforma
+# - "Debt collection" está entre serviços restritos/proibidos
+# - Trocar rótulo para "utility" não muda o enquadramento
+# ===========================================================================
+
+
+# ===========================================================================
+# RN-024 — Semântica de status respeitada
+#
+# Origem: §20-§24 do Documento Mestre v3
+#
+# O que esta regra proíbe confundir:
+# - Pedido "finished" ≠ parcelas pagas (Bling)
+# - Fatura "paga" ≠ recorrência quitada (LIA)
+# - Assinatura "ativa" ≠ última parcela paga (Eduzz)
+# - Pedido criado no checkout ≠ pago (Yampi)
+#
+# Cada fonte tem seu modelo de dados. Não misturar.
+# ===========================================================================
+
+
+# ===========================================================================
+# RN-025 — Coordenação de contatos
+#
+# Origem: §28 do Documento Mestre v3
+#
+# "A Clint, o canal nativo, a Evolution e workflows não podem ser emissores
+# independentes para o mesmo evento."
+#
+# Regra: o mesmo lead não recebe toque de múltiplas fontes simultaneamente
+# sobre o mesmo assunto (cobrar, follow-up, reativação).
+#
+# Solução: ownership por caso — o primeiro a tocar "é o dono" daquela
+# conversation thread. Novos canais esperam ou escalam.
+# ===========================================================================
 
 
 
