@@ -41,6 +41,7 @@ import subprocess
 import sys
 import threading
 import time
+import uuid
 import urllib.error
 import urllib.request
 from collections import deque
@@ -303,7 +304,7 @@ Se `diretiva` for `encerrar`, envie a despedida uma unica vez e nao volte a cont
 Responda em portugues do Brasil. Se nao houver nada a fazer, responda NO_REPLY."""
 
 
-def montar_turno(enriquecido: dict, cfg: Config) -> dict:
+def montar_turno(enriquecido: dict, cfg: Config, execution_id: str = "") -> dict:
     """Corpo do POST para /hooks/agent.
 
     `deliver: false` porque o envio no Instagram e feito pelas tools do MCP, nao
@@ -319,12 +320,13 @@ def montar_turno(enriquecido: dict, cfg: Config) -> dict:
         "agentId": cfg.agent_id,
         "deliver": False,
         "sessionMode": "isolated",
+        "execution_id": execution_id,
     }
 
 
-def despachar(cfg: Config, enriquecido: dict) -> dict:
+def despachar(cfg: Config, enriquecido: dict, execution_id: str = "") -> dict:
     """POST /hooks/agent. Levanta em falha — quem chama registra."""
-    corpo = json.dumps(montar_turno(enriquecido, cfg)).encode("utf-8")
+    corpo = json.dumps(montar_turno(enriquecido, cfg, execution_id)).encode("utf-8")
     idem = str(((enriquecido.get("auditoria") or {}).get("event_id")) or "sem-id")
     req = urllib.request.Request(
         f"{cfg.gateway_url}/hooks/agent",
@@ -340,11 +342,11 @@ def despachar(cfg: Config, enriquecido: dict) -> dict:
         return json.loads(resp.read().decode("utf-8") or "{}")
 
 
-def despachar_e_registrar(cfg: Config, chave: str, enriquecido: dict) -> None:
+def despachar_e_registrar(cfg: Config, chave: str, enriquecido: dict, execution_id: str = "") -> None:
     """Despacha e registra. Quem chama e o Coalescer, uma vez por evento."""
     try:
-        resultado = despachar(cfg, enriquecido)
-        registrar(cfg, "despachado", chave=chave, run_id=resultado.get("runId"))
+        resultado = despachar(cfg, enriquecido, execution_id)
+        registrar(cfg, "despachado", chave=chave, run_id=resultado.get("runId"), execution_id=execution_id)
     except urllib.error.HTTPError as e:
         registrar(cfg, "hook_recusado", chave=chave, status=e.code)
         raise
@@ -442,24 +444,31 @@ class Handler(BaseHTTPRequestHandler):
         saida, motivo = rodar_intake(self.cfg, corpo)
 
         if saida == SILENCIO:
-            registrar(self.cfg, "evento_descartado", motivo=motivo)
+            exec_id = uuid.uuid4().hex
+            registrar(self.cfg, "evento_descartado", motivo=motivo, execution_id=exec_id)
             self._responder(200, {"ok": True, "descartado": True, "motivo": motivo})
             return
 
         if saida == FALHA_INTAKE:
+            exec_id = uuid.uuid4().hex
             # 200 de proposito: a Meta reenviaria o mesmo payload quebrado em loop.
             # O intake ja guardou o bruto no log de falhas DELE, de onde da para
             # reprocessar. Retentar aqui nao conserta formato.
-            registrar(self.cfg, "intake_falhou", motivo=motivo)
+            registrar(self.cfg, "intake_falhou", motivo=motivo, execution_id=exec_id)
             self._responder(200, {"ok": True, "descartado": True, "motivo": FALHA_INTAKE})
             return
 
         try:
             enriquecido = json.loads(saida)
         except json.JSONDecodeError:
-            registrar(self.cfg, "intake_formato_invalido")
+            exec_id = uuid.uuid4().hex
+            registrar(self.cfg, "intake_formato_invalido", execution_id=exec_id)
             self._responder(200, {"ok": True, "descartado": True, "motivo": FALHA_INTAKE})
             return
+
+        # Execution ID gerado aqui e propagado por todo o pipeline.
+        exec_id = uuid.uuid4().hex
+        enriquecido["execution_id"] = exec_id
 
         chave = chave_de_coalescencia(enriquecido)
         estado = self.coalescer.adicionar(chave, enriquecido)
@@ -469,6 +478,7 @@ class Handler(BaseHTTPRequestHandler):
             chave=chave,
             ordem=estado,
             diretiva=enriquecido.get("diretiva"),
+            execution_id=exec_id,
         )
         self._responder(200, {"ok": True, "descartado": False, "ordem": estado})
 
@@ -476,7 +486,9 @@ class Handler(BaseHTTPRequestHandler):
 def construir_servidor(cfg: Config) -> ThreadingHTTPServer:
     Handler.cfg = cfg
     Handler.coalescer = Coalescer(
-        despachar=lambda chave, item: despachar_e_registrar(cfg, chave, item),
+        despachar=lambda chave, item: despachar_e_registrar(
+            cfg, chave, item, execution_id=item.get("execution_id", "")
+        ),
         paralelismo=cfg.paralelismo,
         pausa=(lambda: time.sleep(cfg.pausa_rajada)) if cfg.pausa_rajada else None,
     )

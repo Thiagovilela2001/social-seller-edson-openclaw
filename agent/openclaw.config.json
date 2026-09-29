@@ -4,7 +4,7 @@
       "instagram-seller": {
         "enabled": true,
         "transport": "stdio",
-        "command": "python",
+        "command": "python3",
         "args": ["${SOCIAL_SELLER_REPO}/mcp/instagram_seller_mcp.py"],
         "cwd": "${SOCIAL_SELLER_REPO}",
         "env": {

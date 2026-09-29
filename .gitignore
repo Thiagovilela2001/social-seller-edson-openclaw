@@ -23,3 +23,11 @@ logs/
 __pycache__/
 *.py[cod]
 .pytest_cache/
+
+# ============================================================
+# SNAPSHOT 2026-09-29 — snapshot do port para OpenClaw
+# ============================================================
+# o exemplo precisa entrar: e ele quem documenta os NOMES das variaveis
+!.env.example
+# banco de estado local (139KB); sem isto, um `git add -A` cola o banco
+instagram-seller.db

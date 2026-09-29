@@ -145,6 +145,7 @@ def _autorizar(
     proativo: bool = False,
     acao: str = "",
     exige_identidade: bool = False,
+    execution_id: str = "",
 ) -> None:
     """Todas as regras que antecedem um envio, em ordem estável.
 
@@ -180,6 +181,7 @@ def _autorizar(
         # RN-009/F04: no caminho das ferramentas, omitir `acao` bloqueia. Quem
         # chama esta função é uma ferramenta registrada — não uma decisão de negócio.
         exige_acao=True,
+        execution_id=execution_id,
     )
     if bloqueios:
         # Reporta TODOS os bloqueios: um envio que viola duas regras precisa
@@ -245,7 +247,7 @@ def _resolver_vinculo(comment_id: str, igsid: str = "") -> str:
         raise PolicyBlock(str(e)) from None
 
 
-def send_dm(igsid: str, text: str, *, proativo: bool = False, acao: str = "") -> dict:
+def send_dm(igsid: str, text: str, *, proativo: bool = False, acao: str = "", execution_id: str = "") -> dict:
     """DM dentro da janela de 24h.
 
     `proativo=True` marca a ABORDAGEM (follow-up, reativação, aviso) — é o que
@@ -257,7 +259,7 @@ def send_dm(igsid: str, text: str, *, proativo: bool = False, acao: str = "") ->
     """
     if not text or not text.strip():
         raise PolicyBlock("Mensagem vazia.")
-    _autorizar(igsid, exige_janela=True, texto=text, proativo=proativo, acao=acao)
+    _autorizar(igsid, exige_janela=True, texto=text, proativo=proativo, acao=acao, execution_id=execution_id)
 
     ig_user_id = os.environ["IG_USER_ID"]
     try:
@@ -280,7 +282,7 @@ def send_dm(igsid: str, text: str, *, proativo: bool = False, acao: str = "") ->
     return resultado
 
 
-def send_private_reply(comment_id: str, text: str, igsid: str = "", *, acao: str = "") -> dict:
+def send_private_reply(comment_id: str, text: str, igsid: str = "", *, acao: str = "", execution_id: str = "") -> dict:
     """Resposta privada a um comentário. UMA vez por comentário, até 7 dias.
 
     ATENÇÃO: envie SEMPRE texto puro. Anexos/botões são recusados para quem não
@@ -307,6 +309,7 @@ def send_private_reply(comment_id: str, text: str, igsid: str = "", *, acao: str
         texto=text,
         acao=acao,
         exige_identidade=True,
+        execution_id=execution_id,
     )
 
     ig_user_id = os.environ["IG_USER_ID"]
@@ -340,7 +343,7 @@ def send_private_reply(comment_id: str, text: str, igsid: str = "", *, acao: str
     return resultado
 
 
-def reply_comment_public(comment_id: str, text: str, igsid: str = "", *, acao: str = "") -> dict:
+def reply_comment_public(comment_id: str, text: str, igsid: str = "", *, acao: str = "", execution_id: str = "") -> dict:
     """Resposta pública a um comentário. Visível para todo mundo.
 
     Não exige janela (é público), mas exige kill switch e respeita opt-out — e aqui
@@ -370,6 +373,7 @@ def reply_comment_public(comment_id: str, text: str, igsid: str = "", *, acao: s
         texto=text,
         acao=acao,
         exige_identidade=True,
+        execution_id=execution_id,
     )
 
     resultado = _post(f"{comment_id}/replies", {"message": text})

@@ -30,6 +30,7 @@ from __future__ import annotations
 import json
 import os
 import sys
+import time
 from pathlib import Path
 
 # --------------------------------------------------------------------------
@@ -82,6 +83,25 @@ MENSAGEM_INCERTO = (
 def _log(msg: str) -> None:
     """Diagnóstico vai para stderr — stdout é o canal do protocolo."""
     print(f"[{SERVER_NAME}] {msg}", file=sys.stderr, flush=True)
+
+
+def _trace(execution_id: str, tool: str, igsid: str, acao: str, resultado: str, bloqueio: str | None = None) -> None:
+    """Log de trace da tool em state/mcp_traces.jsonl. Nunca vaza texto do cliente."""
+    linha = {
+        "at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
+        "execution_id": execution_id,
+        "tool": tool,
+        "igsid": igsid,
+        "acao": acao,
+        "resultado": resultado,
+        "bloqueio": bloqueio,
+    }
+    try:
+        dest = STATE / "mcp_traces.jsonl"
+        with dest.open("a", encoding="utf-8") as fh:
+            fh.write(json.dumps(linha, ensure_ascii=False) + "\n")
+    except OSError:
+        pass
 
 
 def _configurar_stdio() -> None:
@@ -145,16 +165,20 @@ def exec_send_dm(args: dict) -> tuple[bool, dict]:
     acao, erro = _acao_obrigatoria(args)
     if erro:
         return _erro(TOOL_ERROR, erro)
+    execution_id = (args.get("execution_id") or "").strip()
     try:
-        result = send_dm(args["igsid"], text, proativo=proativo, acao=acao)
+        result = send_dm(args["igsid"], text, proativo=proativo, acao=acao, execution_id=execution_id)
     except PolicyBlock as e:
+        _trace(execution_id, "ig_send_dm", args.get("igsid", ""), acao, "bloqueado", str(e))
         return _erro(BLOCKED_BY_POLICY, str(e))
     except ResultadoIncerto as e:
+        _trace(execution_id, "ig_send_dm", args.get("igsid", ""), acao, "incerto", None)
         return _erro(RESULTADO_INCERTO, f"{MENSAGEM_INCERTO} Detalhe: {e}")
     except KeyError as e:
         return _erro(TOOL_ERROR, f"Parâmetro obrigatório ausente: {e}")
     except Exception as e:  # noqa: BLE001 — devolver erro é melhor que quebrar o turno
         return _erro(TOOL_ERROR, str(e))
+    _trace(execution_id, "ig_send_dm", args.get("igsid", ""), acao, "sucesso", None)
     return _ok({"message_id": result.get("message_id"), "canal": "ig_dm"})
 
 
@@ -170,18 +194,22 @@ def exec_private_reply(args: dict) -> tuple[bool, dict]:
     acao, erro = _acao_obrigatoria(args)
     if erro:
         return _erro(TOOL_ERROR, erro)
+    execution_id = (args.get("execution_id") or "").strip()
     try:
         # A identidade NÃO vem daqui: send_private_reply resolve o autor pelo
         # comentário (RN-020).
-        result = send_private_reply(args["comment_id"], text, acao=acao)
+        result = send_private_reply(args["comment_id"], text, acao=acao, execution_id=execution_id)
     except PolicyBlock as e:
+        _trace(execution_id, "ig_private_reply", args.get("igsid", ""), acao, "bloqueado", str(e))
         return _erro(BLOCKED_BY_POLICY, str(e))
     except ResultadoIncerto as e:
+        _trace(execution_id, "ig_private_reply", args.get("igsid", ""), acao, "incerto", None)
         return _erro(RESULTADO_INCERTO, f"{MENSAGEM_INCERTO} Detalhe: {e}")
     except KeyError as e:
         return _erro(TOOL_ERROR, f"Parâmetro obrigatório ausente: {e}")
     except Exception as e:  # noqa: BLE001
         return _erro(TOOL_ERROR, str(e))
+    _trace(execution_id, "ig_private_reply", args.get("igsid", ""), acao, "sucesso", None)
     return _ok(
         {
             "message_id": result.get("message_id"),
@@ -195,18 +223,22 @@ def exec_reply_comment(args: dict) -> tuple[bool, dict]:
     acao, erro = _acao_obrigatoria(args)
     if erro:
         return _erro(TOOL_ERROR, erro)
+    execution_id = (args.get("execution_id") or "").strip()
     try:
         result = reply_comment_public(
-            args["comment_id"], (args.get("text") or "").strip(), acao=acao
+            args["comment_id"], (args.get("text") or "").strip(), acao=acao, execution_id=execution_id
         )
     except PolicyBlock as e:
+        _trace(execution_id, "ig_reply_comment", args.get("igsid", ""), acao, "bloqueado", str(e))
         return _erro(BLOCKED_BY_POLICY, str(e))
     except ResultadoIncerto as e:
+        _trace(execution_id, "ig_reply_comment", args.get("igsid", ""), acao, "incerto", None)
         return _erro(RESULTADO_INCERTO, f"{MENSAGEM_INCERTO} Detalhe: {e}")
     except KeyError as e:
         return _erro(TOOL_ERROR, f"Parâmetro obrigatório ausente: {e}")
     except Exception as e:  # noqa: BLE001
         return _erro(TOOL_ERROR, str(e))
+    _trace(execution_id, "ig_reply_comment", args.get("igsid", ""), acao, "sucesso", None)
     return _ok({"message_id": result.get("id"), "canal": "ig_comment_public"})
 
 

@@ -9,7 +9,11 @@ Rodar:  python -m unittest discover -s tests -v
 
 from __future__ import annotations
 
+import importlib
+import json
 import os
+import tempfile
+from pathlib import Path
 import sys
 import tempfile
 import time
@@ -394,6 +398,84 @@ class TestRegistro(BaseRegras):
             row = conn.execute("SELECT * FROM interactions WHERE interaction_id='i2'").fetchone()
         self.assertEqual(row["executed_action"], "respondeu_publico")
         self.assertEqual(row["status"], "respondida")
+
+
+class TestObservabilidade(unittest.TestCase):
+    """Testa log_decisao e state_dir."""
+
+    tmp: tempfile.TemporaryDirectory
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.tmp = tempfile.TemporaryDirectory()
+        cls.basedir = Path(cls.tmp.name)
+        cls.state_dir = cls.basedir / "state"
+        cls.state_dir.mkdir()
+        # Seta IG_STATE_DIR antes de recarregar o modulo.
+        os.environ["IG_STATE_DIR"] = str(cls.basedir)
+        import rules
+        importlib.reload(rules)
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        os.environ.pop("IG_STATE_DIR", None)
+        cls.tmp.cleanup()
+
+    def test_log_decisao_escreve_jsonl_valido(self) -> None:
+        """log_decisao() escreve JSONL com todos os campos obrigatorios."""
+        import rules
+
+        dest = self.state_dir / "decisoes.jsonl"
+
+        rules.log_decisao(
+            execution_id="exec-abc",
+            acao="informar_preco",
+            resultado="liberado",
+            regra="ok",
+        )
+        rules.log_decisao(
+            execution_id="exec-abc",
+            acao="informar_preco",
+            resultado="bloqueado",
+            regra="RN-009",
+        )
+
+        self.assertTrue(dest.exists())
+        linhas = dest.read_text().strip().splitlines()
+        self.assertEqual(len(linhas), 2)
+        for linha in linhas:
+            dados = json.loads(linha)
+            self.assertIn("at", dados)
+            self.assertIn("execution_id", dados)
+            self.assertIn("acao", dados)
+            self.assertIn("resultado", dados)
+            self.assertIn("regra", dados)
+
+    def test_log_decisao_nao_vaza_texto_livre(self) -> None:
+        """O JSONL nao deve conter campos de texto alem de acao/regra."""
+        import rules
+
+        dest = self.state_dir / "decisoes.jsonl"
+        dest.unlink(missing_ok=True)
+
+        rules.log_decisao(
+            execution_id="exec-x",
+            acao="responder_cliente",
+            resultado="liberado",
+            regra="ok",
+        )
+        dados = json.loads(dest.read_text())
+        # IGSID nao entra no log (anonimizacao).
+        self.assertNotIn("igsid", dados)
+        self.assertNotIn("text", dados)
+        self.assertNotIn("preco", dados)
+        self.assertNotIn("oferta", dados)
+
+    def test_state_dir_respeita_ig_state_dir(self) -> None:
+        """state_dir() respeita IG_STATE_DIR quando setado."""
+        import rules
+
+        self.assertEqual(rules.state_dir(), self.basedir / "state")
 
 
 if __name__ == "__main__":

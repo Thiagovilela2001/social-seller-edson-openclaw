@@ -162,6 +162,27 @@ class TestTurno(AmbienteIngress):
         self.assertIn('"diretiva": "responder"', turno["message"])
         self.assertIn("NO_REPLY", turno["message"])
 
+    def test_execution_id_no_turno(self) -> None:
+        """montar_turno propaga execution_id quando fornecido."""
+        cfg = self.cfg()
+        enriquecido = {
+            "briefing": "texto",
+            "diretiva": "responder",
+            "evento": {"tipo_evento": "comentario"},
+            "auditoria": {"event_id": "ev1"},
+            "execution_id": "meu-exec-id-123",
+        }
+        turno = sidecar.montar_turno(enriquecido, cfg, execution_id="meu-exec-id-123")
+        self.assertEqual(turno["execution_id"], "meu-exec-id-123")
+
+    def test_execution_id_default_vazio(self) -> None:
+        """Sem execution_id, o campo existe e e string vazia."""
+        cfg = self.cfg()
+        enriquecido = {"briefing": "texto", "diretiva": "responder"}
+        turno = sidecar.montar_turno(enriquecido, cfg)
+        self.assertIn("execution_id", turno)
+        self.assertEqual(turno["execution_id"], "")
+
 
 class TestOrdenacaoPorRemetente(AmbienteIngress):
     def test_serializa_sem_perder_evento(self) -> None:

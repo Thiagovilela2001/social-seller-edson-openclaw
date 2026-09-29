@@ -62,6 +62,10 @@ CAPACIDADES: dict[str, bool] = {
     "meta.ocultar_comentario": False,
     "meta.excluir_comentario": False,
     "meta.reexibir_comentario": False,
+    # YouTube
+    "youtube.comentar": False,
+    "youtube.hide_comment": False,
+    "youtube.delete_comment": False,
 }
 
 
@@ -192,3 +196,162 @@ def enviar_whatsapp(igsid: str, texto: str) -> dict:
             "o Instagram não é canal de follow-up",
         )
     raise NotImplementedError("Envio por WhatsApp ainda não implementado.")
+
+
+# --------------------------------------------------------------------------
+# YouTube
+# --------------------------------------------------------------------------
+
+
+def youtube_comentar(video_id: str, texto: str) -> dict:
+    """Responder a comentário no YouTube via Data API v3."""
+    if not _configurada("YOUTUBE_CLIENT_ID"):
+        raise FonteIndisponivel(
+            "YouTube", "YOUTUBE_CLIENT_ID",
+            "sem OAuth não há como comentar"
+        )
+    raise NotImplementedError(
+        "YouTube comment insertion não implementado. "
+        "A interface existe para que a RN-022 libere no dia em que "
+        "o OAuth estiver configurado."
+    )
+
+
+def youtube_ocultar(comment_id: str, video_id: str) -> dict:
+    """Ocultar comentário no YouTube (setModerationStatus)."""
+    if not _configurada("YOUTUBE_CLIENT_ID"):
+        raise FonteIndisponivel("YouTube", "YOUTUBE_CLIENT_ID")
+    if not CAPACIDADES.get("youtube.hide_comment", False):
+        raise FonteIndisponivel(
+            "YouTube", "CAPACIDADE", "moderação não implementada"
+        )
+    raise NotImplementedError("YouTube comment moderation não implementado.")
+
+
+def youtube_excluir(comment_id: str, video_id: str) -> dict:
+    """Excluir comentário no YouTube."""
+    if not _configurada("YOUTUBE_CLIENT_ID"):
+        raise FonteIndisponivel("YouTube", "YOUTUBE_CLIENT_ID")
+    if not CAPACIDADES.get("youtube.delete_comment", False):
+        raise FonteIndisponivel(
+            "YouTube", "CAPACIDADE", "exclusão não implementada"
+        )
+    raise NotImplementedError("YouTube comment deletion não implementado.")
+
+
+# --------------------------------------------------------------------------
+# TikTok Shop
+# --------------------------------------------------------------------------
+
+
+def tiktok_enviar_mensagem(order_id: str, texto: str) -> dict:
+    """Enviar DM pelo TikTok Shop para ordem de compra."""
+    if not _configurada("TIKTOK_CLIENT_KEY"):
+        raise FonteIndisponivel(
+            "TikTok Shop", "TIKTOK_CLIENT_KEY",
+            "escopo seller não aprovado"
+        )
+    if not _configurada("TIKTOK_SHOP_ID"):
+        raise FonteIndisponivel(
+            "TikTok Shop", "TIKTOK_SHOP_ID",
+            "loja não configurada"
+        )
+    raise NotImplementedError("TikTok Shop messaging não implementado.")
+
+
+# --------------------------------------------------------------------------
+# Yampi
+# --------------------------------------------------------------------------
+
+
+def yampi_consultar_pedido(pedido_id: str) -> dict:
+    """Consultar pedido Yampi por ID."""
+    if not _configurada("YAMPI_API_KEY"):
+        raise FonteIndisponivel("Yampi", "YAMPI_API_KEY")
+    raise NotImplementedError("Yampi pedido lookup não implementado.")
+
+
+def yampi_status_pagamento(pedido_id: str) -> dict:
+    """Status de pagamento de pedido Yampi."""
+    if not _configurada("YAMPI_API_KEY"):
+        raise FonteIndisponivel("Yampi", "YAMPI_API_KEY")
+    raise NotImplementedError("Yampi payment status não implementado.")
+
+
+def yampi_consultar_por_email(email: str) -> dict:
+    """Buscar pedido Yampi por e-mail do cliente."""
+    if not _configurada("YAMPI_API_KEY"):
+        raise FonteIndisponivel("Yampi", "YAMPI_API_KEY")
+    raise NotImplementedError("Yampi email lookup não implementado.")
+
+
+# --------------------------------------------------------------------------
+# Eduzz
+# --------------------------------------------------------------------------
+
+
+def eduzz_consultar_assinatura(email: str) -> dict:
+    """Consultar assinatura Eduzz por e-mail."""
+    if not _configurada("EDUZZ_API_KEY"):
+        raise FonteIndisponivel("Eduzz", "EDUZZ_API_KEY")
+    raise NotImplementedError("Eduzz subscription lookup não implementado.")
+
+
+def eduzz_status_recorrencia(assinatura_id: str) -> dict:
+    """Status de recorrência Eduzz."""
+    if not _configurada("EDUZZ_API_KEY"):
+        raise FonteIndisponivel("Eduzz", "EDUZZ_API_KEY")
+    raise NotImplementedError("Eduzz recurrence status não implementado.")
+
+
+# --------------------------------------------------------------------------
+# LIA
+# --------------------------------------------------------------------------
+
+
+def lia_consultar_fatura(cliente_id: str) -> dict:
+    """Consultar faturas LIA por ID do cliente."""
+    if not _configurada("LIA_API_KEY"):
+        raise FonteIndisponivel("LIA", "LIA_API_KEY")
+    raise NotImplementedError("LIA invoice lookup não implementado.")
+
+
+def lia_consultar_parcela(fatura_id: str) -> dict:
+    """Consultar parcelas de uma fatura LIA."""
+    if not _configurada("LIA_API_KEY"):
+        raise FonteIndisponivel("LIA", "LIA_API_KEY")
+    raise NotImplementedError("LIA installment lookup não implementado.")
+
+
+def lia_consultar_por_cpf(cpf: str) -> dict:
+    """Buscar cliente LIA por CPF."""
+    if not _configurada("LIA_API_KEY"):
+        raise FonteIndisponivel("LIA", "LIA_API_KEY")
+    raise NotImplementedError("LIA CPF lookup não implementado.")
+
+
+# --------------------------------------------------------------------------
+# Assiny / BigData — BLOQUEADO
+# --------------------------------------------------------------------------
+"""
+Assiny/BigData está BLOQUEADO neste build.
+
+O Documento Mestre v3 §26 é explícito:
+- Provedor: desconhecido
+- Dataset: desconhecido
+- Chaves: desconhecidas
+- Frequência: desconhecida
+- Campos: desconhecidos
+
+QUALQUER implementação agora seria adivinhação.
+
+Aguarde contrato de dados documentado antes de implementar.
+"""
+
+
+def assiny_consultar_venda(igsid: str) -> dict:
+    """BLOQUEADO. Provedor desconhecido. §26 do Documento Mestre v3."""
+    raise RuntimeError(
+        "Assiny/BigData BLOQUEADO: provedor, dataset, chaves e campos "
+        "NÃO são conhecidos. Aguardar contrato de dados documentado."
+    )

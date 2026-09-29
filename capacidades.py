@@ -163,23 +163,35 @@ def _registro() -> dict[str, Capacidade]:
         familia, descricao = descricoes_motor.get(nome, ("controle", "capacidade do motor"))
         registro[nome] = _da_motor(nome, implementada, familia, descricao)
 
-    # 2. O que a v3 acrescenta — tudo PROPOSTO, nada implementado, nada liberado.
+    # 2. O que a v3增量扩展增量扩展增量扩展 — tudo PROPOSTO, nada implementado, nada liberado.
     novas = {
         # --- canal: Instagram (o unico com ferramenta de verdade) -------------
         "instagram.responder_comentario": ("canal", "Resposta publica a comentario"),
         "instagram.enviar_dm": ("canal", "DM dentro da janela permitida"),
         "instagram.private_reply": ("canal", "Resposta privada a comentario, cota unica"),
-        # --- canal: YouTube ---------------------------------------------------
+        # --- canal: YouTube (API existente) ---------------------------------
         "youtube.listar_comentarios": ("canal", "Listar threads de comentarios (Data API)"),
         "youtube.responder_comentario": ("canal", "Responder comentario autorizado"),
         "youtube.moderar_comentario": ("canal", "Aplicar status de moderacao"),
         "youtube.live_receber": ("canal", "Receber chat ao vivo"),
         "youtube.live_enviar": ("canal", "Publicar no chat da live"),
         "youtube.live_moderar": ("canal", "Remover mensagem ou aplicar sançao"),
+        # --- canal: YouTube (v3增量扩展 — propostos, aguardando OAuth) -----
+        "youtube.reply_comment": ("canal", "Responder comentario via API (documentado, nao implementado)"),
+        "youtube.live_chat": ("canal", "Chat ao vivo —/leitura e escrita"),
+        "youtube.hide_comment": ("canal", "Ocultar comentario do YouTube"),
+        "youtube.delete_comment": ("canal", "Excluir comentario do YouTube"),
         # --- canal: TikTok Shop ----------------------------------------------
         "tiktok_shop.consultar_conversa": ("canal", "Conversa de atendimento da loja"),
         "tiktok_shop.responder_chat": ("canal", "Resposta no chat da loja"),
         "tiktok_shop.consultar_pedido": ("comercio_logistica", "Estado do pedido no marketplace"),
+        # --- canal: TikTok Shop (v3增量扩展 — propostos) --------------------
+        "tiktok.send_dm": ("canal", "Envio de DM — condicionado ao escopo de loja"),
+        "tiktok.hide_comment": ("canal", "Ocultar comentario do TikTok"),
+        # --- canal: WhatsApp (v3增量扩展) ------------------------------------
+        "whatsapp.send": ("canal", "Envio WhatsApp — consentemento + opt-in"),
+        # --- canal: E-mail (v3增量扩展) --------------------------------------
+        "email.reply": ("canal", "Responder e-mail — condicionado a dominio autenticado"),
         # --- conhecimento ----------------------------------------------------
         "rag.buscar": ("conhecimento", "Busca na RAG aprovada"),
         "rag.oferta_vigente": ("conhecimento", "Oferta vigente por produto/campanha"),
@@ -189,9 +201,11 @@ def _registro() -> dict[str, Capacidade]:
         "lia.consultar_financiamento": ("financeiro", "Estado do contrato de financiamento"),
         "lia.verificar_renegociacao": ("financeiro", "Substituicao/renegociacao de parcelas"),
         "lia.obter_segunda_via": ("financeiro", "Segunda via existente da parcela vigente"),
+        # --- financeiro: fontes de origem (v3增量扩展) ---------------------
         "eduzz.consultar_faturas": ("financeiro", "Faturas do contrato recorrente"),
         "yampi.consultar_pedido": ("comercio_logistica", "Pedido e transacoes na origem"),
-        "assiny.consultar_venda": ("comercio_logistica", "Venda Assiny na visao do BigData"),
+        "assiny.consultar_venda": ("comercio_logistica",
+            "Venda Assiny na visao do BigData — BLOQUEADO §26: provedor desconhecido"),
         # --- controle ---------------------------------------------------------
         "controle.avaliar_elegibilidade": ("controle", "Elegibilidade de contato por finalidade"),
         "controle.reservar_contato": ("controle", "Reserva do toque antes do envio"),
@@ -221,9 +235,20 @@ def _registro() -> dict[str, Capacidade]:
         "youtube.live_receber": ("YOUTUBE_OAUTH_TOKEN",),
         "youtube.live_enviar": ("YOUTUBE_OAUTH_TOKEN",),
         "youtube.live_moderar": ("YOUTUBE_OAUTH_TOKEN",),
+        # YouTube v3增量扩展
+        "youtube.reply_comment": ("YOUTUBE_OAUTH_TOKEN",),
+        "youtube.live_chat": ("YOUTUBE_OAUTH_TOKEN",),
+        "youtube.hide_comment": ("YOUTUBE_OAUTH_TOKEN",),
+        "youtube.delete_comment": ("YOUTUBE_OAUTH_TOKEN",),
         "tiktok_shop.consultar_conversa": ("TIKTOK_SHOP_APP_KEY", "TIKTOK_SHOP_ACCESS_TOKEN"),
         "tiktok_shop.responder_chat": ("TIKTOK_SHOP_APP_KEY", "TIKTOK_SHOP_ACCESS_TOKEN"),
         "tiktok_shop.consultar_pedido": ("TIKTOK_SHOP_APP_KEY", "TIKTOK_SHOP_ACCESS_TOKEN"),
+        # TikTok v3增量扩展
+        "tiktok.send_dm": ("TIKTOK_SHOP_APP_KEY", "TIKTOK_SHOP_ACCESS_TOKEN"),
+        "tiktok.hide_comment": ("TIKTOK_SHOP_APP_KEY", "TIKTOK_SHOP_ACCESS_TOKEN"),
+        # WhatsApp / E-mail v3增量扩展
+        "whatsapp.send": ("WHATSAPP_TOKEN", "WHATSAPP_PHONE_ID"),
+        "email.reply": ("EMAIL_SMTP_URL",),
         "lia.consultar_parcela": ("LIA_API_TOKEN",),
         "lia.consultar_financiamento": ("LIA_API_TOKEN",),
         "lia.verificar_renegociacao": ("LIA_API_TOKEN",),
