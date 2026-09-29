@@ -95,7 +95,7 @@ SOCIAL_SELLER_REPO=$(pwd) python3 tools/check_agent_config.py   # 22/22
 SOCIAL_SELLER_REPO=$(pwd) python3 tools/check_portability.py    # 6/6
 SOCIAL_SELLER_REPO=$(pwd) python3 tools/check_automations.py   # 47/47
 SOCIAL_SELLER_REPO=$(pwd) python3 mcp/smoke_test.py            # 7/7
-python3 -m unittest discover -s tests                           # 258/258
+python3 -m unittest discover -s tests                           # 332 testes, 1 falha esperada (D1)
 ```
 
 ---

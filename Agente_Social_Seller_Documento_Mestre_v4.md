@@ -1055,8 +1055,14 @@ Síntese de projeto. Fontes e limites de capacidade nas páginas seguintes; todo
 ## 45. Defeitos conhecidos e não corrigidos
 
 **Esta é a seção que a v4 existe para escrever.** Ela é nova, e é a mais importante do documento.
-Tudo aqui está no código **em 29/09/2026** e **não** foi corrigido. Os quatro blocos estão marcados
-`**STATUS: NÃO CORRIGIDO**`. Nada nesta seção foi resolvido, contornado ou escondido.
+
+**ATUALIZADA EM 29/09/2026.** Na redação original desta v4, os quatro blocos estavam
+`**STATUS: NÃO CORRIGIDO**` e nada aqui tinha sido resolvido, contornado ou escondido. **D2 e D3 foram
+corrigidos em 29/09/2026**, no mesmo commit que atualiza este documento. **D1 e D4 seguem não
+corrigidos** — D1 por estar travado no número, D4 por não ser defeito de código. O texto de cada
+defeito é preservado como estava, e a correção é registrada **dentro do bloco correspondente**, com
+a data e a âncora de versão: parecer reescrito depois de aplicado perde a trilha do que foi decidido
+e por quê.
 
 ### 45.0 A regra de triagem que separa o que se aplica do que trava
 
@@ -1078,19 +1084,29 @@ direito já postcode na lei* não precisa de ninguém para autorizar: ou o direi
 depois, em tarefa própria. O código está intocado.
 
 
-O que mudou em relação à documentação anterior: a suíte de testes tem **321 testes definidos**,
-não 258. O número 258 aparece em `docs/INSTALL_OPENCLAW.md` e está **defasado**.
+O que mudou em relação à documentação anterior: a suíte de testes tem **332 testes definidos**
+(era 321 na redação original desta v4; os 11 a mais são os testes da D2, da D3 e do teste de deriva
+doc-código), não 258. O número 258 aparecia em `docs/INSTALL_OPENCLAW.md` e foi **corrigido em
+29/09/2026** — o mesmo commit que adiciona os 11 testes.
 `[verifiquei: grep -rc "    def test_" tests/*.py -> soma 321 (coordenador 22, capacidades 31,
 lgpd 28, intake 25, gate 31, modelo_dados 32, regras_de_negocio 86, ingress 24, mcp 4, rules 38)]`.
-O estado da suíte na última execução conhecida, em 29/09/2026, é **321 testes, 1 falha (320/321)**;
+**ÚLTIMA EXECUÇÃO MEDIDA, 29/09/2026, depois das correções:** `python3 -m unittest discover -s tests`
+-> **332 testes, 1 falha (331/332)**. A única falha é `test_toda_tabela_de_estado_tem_prazo_definido`
+(`tests/test_lgpd.py:110`), que é o **D1 escrito como teste** — e o D1 está travado no número, por
+decisão. Ela **deve** continuar falhando; quando ela ficar verde, é porque alguém escreveu prazo de
+retenção que o jurídico do Edson não assinou.
+`[verifiquei: python3 -m unittest discover -s tests em 29/09/2026 -> Ran 332 tests, FAILED (failures=1),
+única falha test_toda_tabela_de_estado_tem_prazo_definido]`
+
+O estado da suíte na última execução conhecida na redação original desta v4 era **321 testes, 1 falha (320/321)**;
 essa execução **não** foi repetida na elaboração desta v4, porque a tarefa de documentar proíbe
 rodar teste. `[a confirmar: contagem de falhas]`.
 
 | ID | Defeito | Gravidade | Triagem | Onde |
 | --- | --- | --- | --- | --- |
-| **D1** | Tabelas novas sem prazo de retenção e sem DELETE no expurgo | **Alta** — dado pessoal, incluindo hash de CPF, guardado sem prazo | **TRAVADO** no número | `rules.py:2378`, `rules.py:2502-2524` |
-| **D2** | Direito do titular não alcança as 3 tabelas novas | **Alta** — apagamento respondido como cumprido e dado permanece | **APLICÁVEL AGORA** | `rules.py:2573-2585`, `:2588`, `:2609`, `:2613` |
-| **D3** | `limpar_expirados()` fora do expurgo diário | **Média** — reserva expira, linha não é removida | **APLICÁVEL AGORA** (é bug) | `coordenador.py:343`, `:356` |
+| **D1** | Tabelas novas sem prazo de retenção e sem DELETE no expurgo | **Alta** — dado pessoal, incluindo hash de CPF, guardado sem prazo | **TRAVADO** no número | `rules.py:2389`, `rules.py:2513-2535` |
+| **D2** | Direito do titular não alcança as 3 tabelas novas | **Alta** — apagamento respondido como cumprido e dado permanece | **CORRIGIDO 29/09/2026** | `rules.py:2609-2621`, `:2676`, `:2717`, `:2722` |
+| **D3** | `limpar_expirados()` fora do expurgo diário | **Média** — reserva expira, linha não é removida | **CORRIGIDO 29/09/2026** | `coordenador.py:343`, `:366` |
 | **D4** | Sem credencial de Meta/Instagram | **Bloqueadora de go-live** — não é defeito de código | fora do escopo técnico | `docs/CREDENCIAIS-TABELA.md` |
 
 ### D1 · Tabelas novas sem prazo e sem expurgo — **TRAVADO**
@@ -1115,12 +1131,12 @@ guarda em nome do cliente, que é exatamente o que a pendência nº 8 impede
 **O agravante de `vinculos`, escrito sem rodeio:** mesmo depois que o prazo existir, a tabela guarda
 `documento_hash` de CPF **sem qualquer lastro de consentimento registrado**. Ver a Pendência 20.
 
-A RN-015 define prazo de guarda por tabela em `RETENCAO_DIAS` (`rules.py:2378`) e o expurgo em
-`expurgar_expirados()` (`rules.py:2485`). As três tabelas criadas em 26/09/2026 — `identidades`
+A RN-015 define prazo de guarda por tabela em `RETENCAO_DIAS` (`rules.py:2389`) e o expurgo em
+`expurgar_expirados()` (`rules.py:2496`). As três tabelas criadas em 26/09/2026 — `identidades`
 (`rules.py:753`), `ownership` (`rules.py:778`) e `vinculos` (`rules.py:764`) — **não entraram em
 nenhum dos dois**: não existem no dicionário `RETENCAO_DIAS` e não aparecem na tupla `consultas`
-do expurgo (`rules.py:2502-2524`), que é onde vive todo `DELETE`.
-`[verifiquei: rules.py:2378-2410 (dicionário, 13 tabelas) e rules.py:2502-2524 (consultas, 13
+do expurgo (`rules.py:2513-2535`), que é onde vive todo `DELETE`.
+`[verifiquei: rules.py:2389-2421 (dicionário, 13 tabelas) e rules.py:2513-2535 (consultas, 13
 DELETE) — nenhuma das 3 novas está em nenhum dos dois blocos]`
 
 **Consequência, sem suavizar:** dado pessoal — e o `documento_hash` de CPF é o mais sensível do
@@ -1137,9 +1153,18 @@ O comentário do próprio teste diz por que ele existe: *"Tabela nova sem prazo 
 para sempre. Este teste existe para doer quando alguém adicionar uma tabela e esquecer disto."*
 Ele funcionou.
 
-### D2 · Direito do titular não alcança as três tabelas novas — **APLICÁVEL AGORA**
+### D2 · Direito do titular não alcança as três tabelas novas — **CORRIGIDO em 29/09/2026**
 
-**STATUS: NÃO CORRIGIDO — decisão: aplicar, dispensa parecer jurídico**
+**STATUS: CORRIGIDO em 29/09/2026** — commit na branch `thiago/social-seller-openclaw`, `RULES_VERSION 2.4.1 → 2.5.0`.
+> **COMO O COMMIT É REFERENCIADO AQUI.** Esta linha é escrita **dentro** do commit que
+> ela descreve, então ela não pode conter o próprio hash: o hash muda quando a linha
+> entra. O que substitui o hash, e é estável, é a **âncora de versão**:
+> `RULES_VERSION 2.5.0` em `engine/instagram_seller/rules.py`, branch
+> `thiago/social-seller-openclaw`, a partir de `cf9a73f` (a v4). Quem precisa do hash
+> exato, `git log` na branch. Escrever um hash aqui seria escrever um número que a
+> própria edição invalida.
+
+**O que mudou, em uma linha:** `exportar_titular()` e `apagar_titular()` passaram a resolver `igsid → id_interno` por `carregar_identidade_por_namespace()` e a alcançar `identidades`, `vinculos` e `ownership`; `nao_incluido` foi corrigido e o relatório de eliminação passou a dizer o que **não** alcançou.
 
 **Por que não espera o jurídico:** porque aqui **não há número faltando**. O art. 18, II (acesso) e o
 art. 18, VI (eliminação) são **direito do titular**, e o prazo de resposta e o dever de atender já
@@ -1148,14 +1173,14 @@ cumprido **porque é direito**, não porque alguém aprovou um prazo. Discutir q
 antes de atender ao pedido de apagar é inverter a ordem: o titular pede, e o sistema responde que
 cumpriu.
 
-`_TABELAS_COM_IGSID` (`rules.py:2573-2585`) lista **11 tabelas**, todas chaveadas por `igsid`. É
-por essa tupla que o direito de acesso (`exportar_titular()`, `rules.py:2588`) e o direito de
-eliminação (`apagar_titular()`, `rules.py:2613`) varrem o banco.
+`_TABELAS_COM_IGSID` (`rules.py:2609-2621`) lista **11 tabelas**, todas chaveadas por `igsid`. É
+por essa tupla que o direito de acesso (`exportar_titular()`, `rules.py:2676`) e o direito de
+eliminação (`apagar_titular()`, `rules.py:2722`) varrem o banco.
 
 As três tabelas novas **não estão nessa tupla** — e não poderiam estar, porque não são chaveadas por
 `igsid`: são chaveadas por `id_interno` (`identidades`) ou por `(id_interno, canal)` /
 `(id_interno, tipo)` (`ownership`, `vinculos`).
-`[verifiquei: rules.py:753-786 (DDL das 3) vs. rules.py:2573-2585 (11 entradas, todas igsid)]`
+`[verifiquei: rules.py:753-786 (DDL das 3) vs. rules.py:2609-2621 (11 entradas, todas igsid)]`
 
 **Consequência, sem suavizar:** um pedido de apagamento de dados (direito de eliminação) é
 **respondido como cumprido** e deixa intactos o mapa de identidade da pessoa e o hash do seu
@@ -1163,34 +1188,49 @@ documento. O titular pede para ser deletado, recebe confirmação, e o dado fica
 classe de defeito de privacidade: não é ausência de recurso, é **resposta falsa**.
 
 **Agravante, e é o detalhe que torna o defeito pior:** `exportar_titular()` tem um campo
-`nao_incluido` (`rules.py:2609`) que declara honestamente a cegueira do canal — hoje
+`nao_incluido` (`rules.py:2717`) que declara honestamente a cegueira do canal — hoje
 `["private_replies", "processed", "moderacao_aprovacoes"]`. É para o titular saber o que **não** foi
 incluído. As três tabelas novas **não estão nessa lista**, então nem esse campo denuncia a lacuna.
-`[verifiquei: rules.py:2609]` Ou seja: o único mecanismo de transparência que o próprio código tinha
+`[verifiquei: rules.py:2717]` Ou seja: o único mecanismo de transparência que o próprio código tinha
 para esse fim ficou desatualizado junto com a regra.
 
 **O que a correção exige, e é menor do que parece:** resolver `igsid` → `id_interno` e ligar as três
 tabelas por essa chave. O caminho **já existe no código**:
 `carregar_identidade_por_namespace()` (`vinculo_resolver.py:96`) e `obter_ou_criar_identidade()`
 (`vinculo_resolver.py:112`) traduzem `(plataforma, id_externo)` em `id_interno` pela
-`namespace_id`. Uma vez obtido o `id_interno`, o `DELETE` de `apagar_titular()` (`rules.py:2613`)
+`namespace_id`. Uma vez obtido o `id_interno`, o `DELETE` de `apagar_titular()` (`rules.py:2722`)
 passa a alcançar `identidades` (PK `id_interno`), `vinculos` (PK `(id_interno, tipo)`) e `ownership`
-(PK `(id_interno, canal)`), e `exportar_titular()` (`rules.py:2588`) a ler as três.
+(PK `(id_interno, canal)`), e `exportar_titular()` (`rules.py:2676`) a ler as três.
 `[verifiquei: vinculo_resolver.py:96-110 e :112-133; DDLs em rules.py:753-786]`
 
 Três ajustes accompanyam a correção, e os três são consequência direta do defeito:
-1. **`nao_incluido` (`rules.py:2609`) precisa parar de mentir.** Ou as três tabelas entram no
+1. **`nao_incluido` (`rules.py:2717`) precisa parar de mentir.** Ou as três tabelas entram no
    direito de acesso, ou o campo declara que não entram. Hoje não diz nada — que é o pior dos dois.
 2. **A resposta ao titular precisa ser verdadeira.** `apagar_titular()` devolve `contagens` por
-   tabela (`rules.py:2653-2660`). Se as três não constarem, o titular recebe uma confirmação de
+   tabela (`rules.py:2785-2792`). Se as três não constarem, o titular recebe uma confirmação de
    cumprimento que não aconteceu.
 3. **A recusa de contato continua sobrevivendo ao apagamento.** O bloqueio pós-exclusão em
    `bloqueios_permanentes` existe para o titular não ser recontatado e **não** deve ser tocado por
-   esta correção (`rules.py:2635-2651`).
+   esta correção (`rules.py:2767-2783`).
 
-### D3 · `limpar_expirados()` existe e não é chamado — **APLICÁVEL AGORA**
+### D3 · `limpar_expirados()` existe e não é chamado — **CORRIGIDO em 29/09/2026**
 
-**STATUS: NÃO CORRIGIDO — decisão: aplicar, é bug e não política**
+**STATUS: CORRIGIDO em 29/09/2026** — commit na branch `thiago/social-seller-openclaw`, `RULES_VERSION 2.4.1 → 2.5.0`.
+> **COMO O COMMIT É REFERENCIADO AQUI.** Esta linha é escrita **dentro** do commit que
+> ela descreve, então ela não pode conter o próprio hash: o hash muda quando a linha
+> entra. O que substitui o hash, e é estável, é a **âncora de versão**:
+> `RULES_VERSION 2.5.0` em `engine/instagram_seller/rules.py`, branch
+> `thiago/social-seller-openclaw`, a partir de `cf9a73f` (a v4). Quem precisa do hash
+> exato, `git log` na branch. Escrever um hash aqui seria escrever um número que a
+> própria edição invalida.
+
+**O que mudou, em uma linha:** `expurgar_expirados()` chama `coordenador.limpar_expirados()` (import tardio), e o `DELETE` de `ownership` perdeu o filtro `estado = 'contato_em_andamento'` — reserva vencida em `resolvido`/`abandonado` é linha morta segurando a PK `(id_interno, canal)`.
+
+**A `[a confirmar]` desta seção foi resolvida — era código morto.** A busca no repositório inteiro, refeita em 29/09/2026, retornou **a definição e dois testes, nenhum chamador em runtime**: `coordenador.py:343` (definição) e `tests/test_coordenador.py` (dois testes). Nenhum `ingress/`, nenhum `agent/`, nenhum `automations/` chamava a função. `[verifiquei: grep -rn "limpar_expirados" --include=*.py . -> só a definição e tests/test_coordenador.py; nenhum outro chamador]`. Consequência, então, confirmada: a reserva expirava no relógio e a linha **nunca** era removida.
+
+**Confirmação da leitura do §46.3 no código — o filtro por estado tinha de sair, e sair dele não abriu risco.** `verificar_canal()` devolve `None` para `resolvido`/`abandonado` **antes** de olhar a expiração; e `reservar_canal()` substitui a linha quando o TTL venceu, em qualquer estado. Ou seja, a linha vencida em estado terminal não protege ninguém: não bloqueia reserva e só ocupa espaço. Remover o filtro **só pode liberar**, nunca travar — que é a direção segura. `[verifiquei: coordenador.py:316-341 (verificar_canal: estado terminal antes da expiração) e :163-260 (reservar_canal: TTL vencido -> DELETE+INSERT)]`
+
+**Enquadramento mantido:** isto **não** é obrigação de LGPD e não virou prazo de guarda. Nada foi acrescentado a `RETENCAO_DIAS`; o TTL continua na coluna `expira_em`, e a §48 declara `ownership` como `TTL na linha` — e o teste de deriva da §48 falha se alguém colocar número aí.
 
 **Cuidado com o enquadramento, porque é aqui que se erra:** isto **não** é obrigação de LGPD, e não
 passa por jurídico. É **bug**. A função que faz a limpeza **já existe** (`coordenador.py:343`), já
@@ -1198,11 +1238,12 @@ está escrita, já filtra o que é para filtrar. O que falta é **ligá-la** ao 
 função que já existe não é decisão de política — é conserto de fiação, do mesmo tipo que ligar um
 botão que já foi instalado.
 
-`limpar_expirados()` (`coordenador.py:343`) apaga reservas vencidas com
+**O estado ANTERIOR à correção, reproduzido para auditoria.** `limpar_expirados()`
+(`coordenador.py:343`) apagava reservas vencidas com
 `DELETE FROM ownership WHERE expira_em < ? AND estado = 'contato_em_andamento'`
-(`coordenador.py:356`). A função existe, filtra por TTL **e** por estado, e **não** está dentro do
-expurgo de 24h — que é `expurgar_se_preciso()` (`rules.py:2533`) → `expurgar_expirados()`
-(`rules.py:2485`), cujas consultas não tocam `ownership`.
+(`coordenador.py:366`, linha hoje removida). A função existia, filtrava por TTL **e** por estado, e
+**não** estava dentro do expurgo de 24h — que é `expurgar_se_preciso()` (`rules.py:2544`) →
+`expurgar_expirados()` (`rules.py:2496`), cujas consultas não tocavam `ownership`.
 
 Chamadores no repositório inteiro: **só testes** (`tests/test_coordenador.py:249` e `:258`).
 `[verifiquei: grep -rn "limpar_expirados" --include=*.py . -> coordenador.py:343 (definição),
@@ -1256,8 +1297,17 @@ dado na escrita é o mesmo que o guarda sem prazo e não o apaga quando pedem.
   receber a resposta do jurídico.
 - **D4 não é engenharia.** É acesso, e acesso depende de decisão e de conta do cliente.
 
-**Nenhuma correção foi aplicada nesta revisão — por decisão explícita: primeiro documentar, depois
-alterar.** A v4 registra a decisão de triagem; a execução vem em tarefa própria.
+**D2 e D3 foram corrigidos em 29/09/2026**, no mesmo commit que atualiza este documento — que é
+a doutrina que o Gian ratificou nessa data: *o documento acompanha o código, com data e âncora de
+versão no mesmo commit*. **D1 segue NÃO CORRIGIDO e TRAVADO**, por decisão deliberada: escrever
+prazo de guarda para `identidades` e `vinculos` sem o número do jurídico do Edson é a casa
+inventando prazo em nome do cliente.
+
+**O teste que pega a deriva agora existe:** `tests/test_deriva_documento.py` compara a tabela
+canônica da §48 com o schema real do SQLite e com `RETENCAO_DIAS`, nos dois sentidos e no
+número do prazo. Divergência é teste vermelho, com mensagem que diz qual tabela divergiu e o que
+fazer. `test_toda_tabela_de_estado_tem_prazo_definido` (`tests/test_lgpd.py:110`) **continua
+falhando, e é o comportamento correto**: ele é o D1 escrito como teste, e o D1 está travado.
 
 ## 46. Parecer de compliance sobre retenção
 
@@ -1311,11 +1361,17 @@ seria classificar errado: a linha não tem conteúdo a preservar, tem um direito
 liberar.
 
 **Mecanismo proposto, e é a alternativa mais simples:** DELETE por `expira_em` **dentro do expurgo de
-24h** (`expurgar_se_preciso()`, `rules.py:2533`), **sem filtro por estado**. O filtro por
-`estado = 'contato_em_andamento'` que existe em `limpar_expirados()` (`coordenador.py:356`) é o que
-faria a linha de um contato resolvido ou abandonado nunca sair — e a reserva vencida não tem motivo
-para sobreviver, qualquer que seja o estado. Enquanto isso não for feito, vale o defeito **D3** da
-§45.
+24h** (`expurgar_se_preciso()`, `rules.py:2544`), **sem filtro por estado**. O filtro por
+`estado = 'contato_em_andamento'` que existia em `limpar_expirados()` era o que faria a linha de um
+contato resolvido ou abandonado nunca sair — e a reserva vencida não tem motivo para sobreviver,
+qualquer que seja o estado.
+
+> **STATUS DESTE MECANISMO: APLICADO em 29/09/2026.** É exatamente o que a §45 D3 registra como
+> corrigido. O parecer acima foi escrito antes da correção e é preservado como está, pela mesma
+> razão pela qual a §45 preserva o texto antigo do defeito: parecer que se reescreve depois de
+> aplicado perde a trilha do que se decideṡou e por quê. O que mudou, e o que NÃO mudou:
+> a linha continua **sem prazo em `RETENCAO_DIAS`** — isto nunca foi obrigação de LGPD, e
+> `ownership` é declarado como `TTL na linha` na §48.
 
 ### 46.4 Guarda probatória: art. 7 VI e art. 16 I
 
@@ -1361,24 +1417,100 @@ deste ciclo.
 | 10 | **Credenciais das integrações** — Bling bloqueado, Meta/Instagram ausente | **Gian** (decisão sobre alimentador somente-leitura do Bling) | **bloqueante de go-live** | `docs/CREDENCIAIS-TABELA.md`, `haos-api catalog` |
 | 11 | Assinar o documento mestre (v4) | **Gian** | **aberta** | esta v4 |
 | 12 | **Corrigir D1** — prazo e expurgo de `identidades`, `vinculos`, `ownership`. **TRAVADO:** depende da nº 8 | **@dev-backend**, após nº 8 | **travada no número — decisão: aplicar quando destravar** | §45 D1 |
-| 13 | **Corrigir D2** — resolver `igsid` → `id_interno` e incluir as 3 tabelas no direito do titular e no `nao_incluido`. **APLICÁVEL AGORA** | **@dev-backend** | **decidida: aplicar — não iniciada nesta revisão** | §45 D2 |
-| 14 | **Corrigir D3** — DELETE de `ownership` por `expira_em` dentro do expurgo de 24h, sem filtro por estado. **APLICÁVEL AGORA (bug)** | **@dev-backend** | **decidida: aplicar — não iniciada nesta revisão** | §45 D3 / §46.3 |
+| 13 | **Corrigir D2** — resolver `igsid` → `id_interno` e incluir as 3 tabelas no direito do titular e no `nao_incluido` | **@dev-backend** | **FECHADA em 29/09/2026** — `exportar_titular()` e `apagar_titular()` alcançam `identidades`, `vinculos` e `ownership`; `nao_incluido` corrigido; `bloqueios_permanentes` intacto. Testes em `tests/test_lgpd.py::TestD2DireitoTitularAlcanceIdInterno` | §45 D2, `RULES_VERSION 2.5.0` |
+| 14 | **Corrigir D3** — DELETE de `ownership` por `expira_em` dentro do expurgo de 24h, sem filtro por estado | **@dev-backend** | **FECHADA em 29/09/2026** — `limpar_expirados()` ligada ao expurgo; filtro por `estado` removido. Confirmado que **não havia chamador em runtime** (código morto). Testes em `tests/test_coordenador.py::TestLimparExpiradosNoExpurgoDiario` | §45 D3 / §46.3, `RULES_VERSION 2.5.0` |
 | 15 | **Decidir WhatsApp** (finalidade antes do envio, §27) | **Gian** | **pendente de decisão** | §27 |
 | 16 | **Decidir Bling** — alimentador somente-leitura ou esperar renovação de token | **Gian** | **bloqueada** | broker: `bling.disponivel=false` |
 | 17 | **Reclassificar e fechar G4, G7, G8** | **@dev-backend / @devops** | **aberta** | `docs/GAPS.md` |
 | 18 | **Assinar o gateway do OpenClaw** no sandbox (hoje não instalado) | **@devops** | **aberta** | `docs/INSTALL_OPENCLAW.md` |
-| 19 | **Atualizar o número de testes** de 258 para 321 em `docs/INSTALL_OPENCLAW.md` | **@devops** | **aberta** | §45, cabeçalho |
+| 19 | **Atualizar o número de testes** em `docs/INSTALL_OPENCLAW.md` | **@devops** | **FECHADA em 29/09/2026** — de 258 para o número real medido no mesmo commit que adiciona os testes | §45, cabeçalho |
 | 20 | **Registro de consentimento do responsável (art. 14)** — feature **não construída**. Sem ela, `vinculos` guarda `documento_hash` de CPF **sem lastro de consentimento**, e o prazo de 365 dias da §46.2 nunca se aplica | **a decidir: HAOS constrói × jurídico do Edson define** | **aberta — nova, 29/09/2026** | §45 D1, §46.2 |
 
 **Ordem sugerida, em duas ondas:**
 
-- **Onda 1 — não espera ninguém:** **13** (D2, direito do titular) e **14** (D3, bug de fiação).
-  São as duas que a casa aplica por decisão própria. A **20** entra na mesma onda se o jurídico
+- **Onda 1 — não espera ninguém — CONCLUÍDA em 29/09/2026:** **13** (D2, direito do titular) e
+  **14** (D3, bug de fiação) foram aplicadas. Restou nesta onda a **20**, que depende do jurídico:
+  ela **não** foi iniciada e segue aberta, porque construir o registro de consentimento do
+  art. 14 exige saber o que o jurídico reconhece como consentimento. A **20** entra na mesma onda se o jurídico
   definir o que é consentimento; se não, ela é criada vazia e populada depois.
 - **Onda 2 — depende do número:** **7** e **8** com o jurídico e o encarregado, e **12** logo em
   seguida, porque D1 está travado exatamente por causa delas.
 - **Fora das ondas:** **10** antes do go-live, **19** a qualquer momento (é texto), **11** ao final,
   quando os defeitos já estiverem fechados ou aceitos por escrito.
+
+## 48. Inventário canônico de tabelas de estado
+
+> **POR QUE ESTA SEÇÃO EXISTE, E POR QUE ELA É LIDA POR UM TESTE.**
+>
+> A v3 morreu não de envelhecer: morreu de três dias de trabalho pesado entregues
+> sem que ninguém atualizasse o documento, e a sessão seguinte descobriu um motor
+> diferente do descrito. A partir desta v4 a doutrina é outra, e ela é do Gian
+> (29/09/2026): **o documento acompanha o código — toda mudança que toca uma
+> seção do documento atualiza a seção no MESMO commit, com data e hash.**
+>
+> Letra morta não serve. `tests/test_deriva_documento.py` abre o schema real do
+> SQLite e compara com esta tabela. Divergência de schema, de nome ou de prazo é
+> **teste vermelho**. Para quem editar: acrescente a tabela aqui junto com a
+> coluna no `rules.py`, no mesmo commit. Para quem precisar mudar um prazo,
+> mude em `RETENCAO_DIAS` e aqui.
+
+**TABELA CANÔNICA — formato estável de parse.** O teste de deriva lê exatamente
+esta tabela e nada mais. Três colunas, com estas regras de coluna:
+
+| Coluna | Valores aceitos | Significado |
+| --- | --- | --- |
+| `tabela` | nome entre crases | Tem de bater com `sqlite_master` nos dois sentidos. |
+| `status` | `dado de pessoa` \| `infra` \| `do SQLite` | `infra` e `do SQLite` são isentos de prazo. |
+| `prazo` | `N dias` \| `permanente` \| `TTL na linha` \| `sem prazo` \| `—` | O valor tem de bater com `RETENCAO_DIAS` / `RETENCAO_PERMANENTE`. |
+
+| `tabela` | `status` | `prazo` |
+| --- | --- | --- |
+| `aprovacoes` | dado de pessoa | 365 dias |
+| `bloqueios_permanentes` | dado de pessoa | permanente |
+| `exclusoes` | dado de pessoa | 365 dias |
+| `fila_humana` | dado de pessoa | 90 dias |
+| `followups` | dado de pessoa | 90 dias |
+| `identidades` | dado de pessoa | sem prazo |
+| `inbound` | dado de pessoa | 30 dias |
+| `interactions` | dado de pessoa | 180 dias |
+| `lacunas` | dado de pessoa | 30 dias |
+| `lead_flags` | dado de pessoa | 90 dias |
+| `lead_stage` | dado de pessoa | 180 dias |
+| `manutencao` | infra | — |
+| `moderacao_aprovacoes` | dado de pessoa | 365 dias |
+| `opt_outs` | dado de pessoa | permanente |
+| `ownership` | dado de pessoa | TTL na linha |
+| `private_replies` | dado de pessoa | 180 dias |
+| `processed` | dado de pessoa | 7 dias |
+| `reconciliacao` | dado de pessoa | 365 dias |
+| `sqlite_sequence` | do SQLite | — |
+| `toques_proativos` | dado de pessoa | 180 dias |
+| `vinculos` | dado de pessoa | sem prazo |
+
+**As quatro linhas que não são um prazo de guarda, e por quê** — são as que a
+seção existe para impedir que alguém "conserte" com um número inventado:
+
+- **`identidades` — `sem prazo` (D1, TRAVADO).** O prazo de 365 dias está
+  §46.1 e é *proposto*, não aplicado. O número é do jurídico do Edson
+  (Pendência 8). Escrever 30, 90 ou 365 aqui sem a assinatura dele é a casa
+  inventando prazo de guarda em nome do cliente.
+- **`vinculos` — `sem prazo` (D1, TRAVADO).** Mesmo motivo, e ainda mais grave:
+  guarda `documento_hash` de CPF **sem registro de consentimento do
+  responsável** (art. 14, §1º), porque esse campo não existe no schema. É a
+  Pendência 20, e ela é independente do prazo: destravar o número sem a
+  Pendência 20 deixa hash de CPF sem lastro.
+- **`ownership` — `TTL na linha` (D3, CORRIGIDO em 29/09/2026).** **Não é prazo
+  de guarda, e nunca deve entrar em `RETENCAO_DIAS`.** É reserva temporária e o
+  TTL já está na própria coluna `expira_em`; a limpeza é por `expira_em`, sem
+  filtro por estado, dentro do expurgo de 24h (`coordenador.limpar_expirados()`,
+  chamada por `rules.expurgar_expirados()`). Tratar como "prazo de guarda" seria
+  classificar errado — ver §46.3.
+- **`bloqueios_permanentes` e `opt_outs` — `permanente`.** A recusa de contato é
+  a própria base para não contatar de novo; apagar a recusa é transformar opt-out
+  em consentimento. E o bloqueio pós-exclusão só guarda hash, justamente para o
+  apagamento não virar a causa de uma reabordagem.
+
+---
 
 ## Referências
 [V4-C] Código do projeto Social Seller, estado de 29/09/2026. Todos os lastros `[arquivo:linha]` desta v4 apontam para: `engine/instagram_seller/rules.py`, `engine/instagram_seller/vinculo_resolver.py`, `engine/instagram_seller/coordenador.py`, `ingress/sidecar.py`, `tests/test_lgpd.py`, `tests/test_coordenador.py`, `agent/openclaw.config.json`. **Nenhum arquivo de código foi modificado na elaboração da v4.**

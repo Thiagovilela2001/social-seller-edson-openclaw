@@ -54,9 +54,20 @@ from typing import Any, Iterable, Optional
 # | sempre), com `sob_pergunta` como padrão.
 # 2.0.0 -> 2.1.0: entrou a seção de PROTEÇÃO DE DADOS (RN-014..RN-018) — prazo de
 # guarda por tabela, expurgo automático, minimização do texto e direito do titular.
+# 2.4.1 -> 2.5.0: correcao dos defeitos D2 e D3 do Documento Mestre v4 §45.
+#   D2: o direito do titular (art. 18, II e VI) passa a alcancar as 3 tabelas
+#   chaveadas por `id_interno` — `vinculos`, `ownership` e `identidades` — que
+#   ficavam fora de `_TABELAS_COM_IGSID`. `nao_incluido` foi corrigido para
+#   declarar a cegueira que continua (por que), e `apagar_titular()` passou a
+#   distinguir "nao havia linha" de "nao foi alcancado". `bloqueios_permanentes`
+#   nao foi tocado: a recusa de contato sobrevive ao apagamento, e so como hash.
+#   D3: `ownership` entra no expurgo de 24h por `expira_em`, sem filtro por
+#   estado. `limpar_expirados()` nao tinha chamador em runtime antes disso.
+#   D1 NAO foi corrigido: `identidades` e `vinculos` seguem sem prazo, porque o
+#   numero e do juridico do Edson e nao se inventa prazo de guarda.
 # 2.4.0 -> 2.4.1: entrou a RN-025 (coordenacao de contatos: ownership por caso
 #   para evitar toque simultaneo de multiplas fontes no mesmo lead).
-RULES_VERSION = "2.4.1"
+RULES_VERSION = "2.5.0"
 
 # ---------- janelas e limites (PDF §05 e docs/05 §2) ----------
 DM_WINDOW_SECONDS = 24 * 60 * 60
@@ -2492,6 +2503,12 @@ def expurgar_expirados(now: Optional[float] = None) -> dict[str, int]:
        ninguém fez.
     2. `opt_outs` não é tocada. A recusa é o motivo de não voltar a falar com a
        pessoa — ver RETENCAO_PERMANENTE.
+    3. `ownership` não entra em `RETENCAO_DIAS` porque NÃO É PRAZO DE GUARDA: é
+       reserva temporária, e o TTL já está na própria linha (`expira_em`). A limpeza
+       é por `expira_em`, sem filtro por estado, e é delegada a quem tem a semântica
+       da tabela — `coordenador.limpar_expirados()` (D3, §45 do Documento Mestre v4,
+       corrigido em 29/09/2026). Antes desta ligação a função não tinha chamador em
+       runtime nenhum: a reserva expirava no relógio e a linha nunca saía.
     """
     momento = now if now is not None else time.time()
     apagados: dict[str, int] = {}
@@ -2527,7 +2544,26 @@ def expurgar_expirados(now: Optional[float] = None) -> dict[str, int]:
         for tabela, sql, argumentos in consultas:
             cursor = conn.execute(sql, argumentos())
             apagados[tabela] = cursor.rowcount if cursor.rowcount > 0 else 0
+
+    # `ownership` fica de fora do laço acima de propósito: a conexão do laço já
+    # está aberta e a limpeza abre a dela própria (`_rules_db` em coordenador.py).
+    apagados["ownership"] = _limpar_ownership_expirado()
     return apagados
+
+
+def _limpar_ownership_expirado() -> int:
+    """Liga a limpeza de `ownership` ao expurgo (D3, §45 do Documento Mestre v4).
+
+    A semântica da tabela (TTL, estados terminais) é do coordenador, não deste
+    arquivo — por isso a chamada é feita lá dentro e não reimplementada aqui.
+    O import é tardio porque `coordenador` importa este módulo (RN-025).
+    """
+    try:
+        from . import coordenador as _coordenador
+    except ImportError:  # pragma: no cover - import sem pacote
+        import coordenador as _coordenador  # type: ignore[no-redef]
+
+    return _coordenador.limpar_expirados()
 
 
 def expurgar_se_preciso(*, intervalo_horas: int = 24, now: Optional[float] = None) -> dict[str, int]:
@@ -2584,14 +2620,74 @@ _TABELAS_COM_IGSID = (
     ("reconciliacao", "igsid"),
 )
 
+# Tabelas que o direito do titular precisa alcançar e que NÃO são chaveadas por
+# `igsid` (D2, §45 do Documento Mestre v4, corrigido em 29/09/2026).
+#
+# A ordem é de exclusão, não de leitura: as filhas (`vinculos`, `ownership`)
+# primeiro, a pai (`identidades`) por último. O schema não declara FOREIGN KEY,
+# mas apagar a identidade antes deixaria as filhas órfãs apontando para um
+# `id_interno` que já não existe — e o relatório de eliminação contaria linhas que
+# sobraram.
+_TABELAS_COM_ID_INTERNO = ("vinculos", "ownership", "identidades")
+
+# Prefixos de namespace tentados ao resolver `igsid` -> `id_interno`. Instagram é
+# `ig` pelo mapa de plataformas (`modelo_dados._PLATAFORMA_PARA_NAMESPACE`); o
+# nome longo entra porque uma identidade pode ter sido gravada com ele.
+_NAMESPACES_IG = ("ig", "instagram")
+
+# O que `exportar_titular` NÃO alcança, e por quê. Um relatório que omite a própria
+# cegueira é pior que a cegueira: quem responde ao titular precisa saber o que não
+# foi incluído. (D2, acompanhante (a).)
+_NAO_INCLUIDO_POR_IGSID = {
+    "private_replies": "chaveada por comment_id; não há ponte comment_id -> igsid",
+    "processed": "chaveada por event_id da Meta; não é dado de pessoa",
+    "moderacao_aprovacoes": "chaveada por comment_id; não há ponte comment_id -> igsid",
+}
+
+
+def _resolver_id_interno(igsid: str) -> Optional[str]:
+    """Traduz `igsid` em `id_interno` — a chave das tabelas de identidade (D2).
+
+    Usa a função que já existe, `carregar_identidade_por_namespace()`, e não
+    `obter_ou_criar_identidade()`: esta última CRIA a identidade quando não
+    encontra, e criar uma linha dentro de um pedido de acesso ou de eliminação
+    seria gravar dado justamente na operação que existe para apagar dado. Se a
+    pessoa não tem identidade registrada, a resposta é que não tem — não que
+    passa a ter.
+
+    Devolve `None` quando não há identidade para esse igsid, e o chamador registra
+    isso explicitamente no relatório: "não alcançado" e "não havia nada" são
+    respostas diferentes.
+    """
+    if not igsid:
+        return None
+    try:
+        from . import vinculo_resolver as _resolver
+    except ImportError:  # pragma: no cover - import sem pacote
+        import vinculo_resolver as _resolver  # type: ignore[no-redef]
+
+    for prefixo in _NAMESPACES_IG:
+        identidade = _resolver.carregar_identidade_por_namespace(f"{prefixo}:{igsid}")
+        if identidade is not None:
+            return identidade.id_interno
+    return None
+
 
 def exportar_titular(igsid: str) -> dict:
     """Direito de acesso (LGPD art. 18, II) — tudo o que existe sobre a pessoa.
 
+    Duas camadas de alcance, e as duas são ditas no resultado:
+
+    1. As 11 tabelas de `_TABELAS_COM_IGSID`, por `igsid`.
+    2. As 3 tabelas de `_TABELAS_COM_ID_INTERNO` (`vinculos`, `ownership`,
+       `identidades`), por `id_interno` — alcançadas resolvendo o igsid para
+       identidade. Antes de 29/09/2026 elas não entravam, e o pedido de acesso
+       era respondido como cumprido deixando de fora o mapa de identidade e o
+       `documento_hash` de CPF (D2, §45 do Documento Mestre v4).
+
     Limite honesto: `private_replies`, `processed` e `moderacao_aprovacoes` são
     chaveados por comentário/evento, não por igsid — não há como ligá-los à pessoa
-    por esta via. Isso está dito aqui porque quem responde ao titular precisa saber
-    o que NÃO foi incluído.
+    por esta via. Isso está em `nao_incluido`, com o motivo de cada um.
     """
     dados: dict[str, list[dict]] = {}
     with db() as conn:
@@ -2601,28 +2697,51 @@ def exportar_titular(igsid: str) -> dict:
             ).fetchall()
             dados[tabela] = [dict(linha) for linha in linhas]
 
+    id_interno = _resolver_id_interno(igsid)
+    with db() as conn:
+        for tabela in _TABELAS_COM_ID_INTERNO:
+            if id_interno is None:
+                dados[tabela] = []
+                continue
+            linhas = conn.execute(
+                f"SELECT * FROM {tabela} WHERE id_interno = ?", (id_interno,)  # noqa: S608
+            ).fetchall()
+            dados[tabela] = [dict(linha) for linha in linhas]
+
     return {
         "igsid": igsid,
         "gerado_em_brt": now_brt().isoformat(),
         "rules_version": RULES_VERSION,
         "tabelas": dados,
-        "nao_incluido": ["private_replies", "processed", "moderacao_aprovacoes"],
+        "identidade_resolvida": id_interno is not None,
+        "nao_incluido": sorted(_NAO_INCLUIDO_POR_IGSID),
+        "nao_incluido_motivo": dict(_NAO_INCLUIDO_POR_IGSID),
     }
 
 
 def apagar_titular(igsid: str, *, motivo: str = "") -> dict:
     """Direito de eliminação (LGPD art. 18, VI).
 
-    Duas decisões que definem se isto é eliminação ou teatro:
+    Três decisões que definem se isto é eliminação ou teatro:
 
     1. **O bloqueio de contato sobrevive ao apagamento**, em `bloqueios_permanentes`
        e só como hash. Se apagasse a recusa junto com o dado, a pessoa que pediu
        para ser esquecida seria abordada na próxima campanha — o apagamento viraria
-       a causa da violação.
+       a causa da violação. **Não tocar nesta parte.**
     2. **A prova do atendimento não guarda o igsid**, só o hash e as contagens.
        Guardar quem pediu o apagamento é manter exatamente o dado que se apagou.
+    3. **O relatório diz o que foi alcançado e o que não foi** (D2). Se a pessoa
+       não tem identidade registrada, as 3 tabelas por `id_interno` não são
+       "apagadas com sucesso em 0 linhas": são *não alcançadas*, e a diferença
+       aparece em `nao_alcancaveis` e em `identidade_resolvida`. Um `contagens`
+       que mostra 0 sem essa ressalva é confirmação falsa.
     """
     contagens: dict[str, int] = {}
+    nao_alcancaveis: list[str] = []
+    # Resolvido ANTES de abrir a conexão de escrita: a resolução abre a dela própria
+    # para ler `identidades`, e ler aninhado dentro de uma transação que já
+    # apagou linhas é pedir bloqueio do SQLite.
+    id_interno = _resolver_id_interno(igsid)
     with db() as conn:
         for tabela, coluna in _TABELAS_COM_IGSID:
             if tabela == "opt_outs":
@@ -2639,6 +2758,18 @@ def apagar_titular(igsid: str, *, motivo: str = "") -> dict:
         conn.execute("DELETE FROM opt_outs WHERE igsid = ?", (igsid,))
         contagens["opt_outs"] = recusou
 
+        # D2 — as 3 tabelas por `id_interno`. Filhas antes da pai (ver
+        # `_TABELAS_COM_ID_INTERNO`). `bloqueios_permanentes` NÃO entra aqui.
+        for tabela in _TABELAS_COM_ID_INTERNO:
+            if id_interno is None:
+                contagens[tabela] = 0
+                nao_alcancaveis.append(tabela)
+                continue
+            cursor = conn.execute(
+                f"DELETE FROM {tabela} WHERE id_interno = ?", (id_interno,)  # noqa: S608
+            )
+            contagens[tabela] = cursor.rowcount if cursor.rowcount > 0 else 0
+
         hash_id = hashlib.sha256(igsid.encode("utf-8")).hexdigest()
         conn.execute(
             "INSERT OR REPLACE INTO bloqueios_permanentes (igsid_hash, at, motivo) VALUES (?,?,?)",
@@ -2653,6 +2784,8 @@ def apagar_titular(igsid: str, *, motivo: str = "") -> dict:
     return {
         "igsid_apagado": mascarar_id(igsid),
         "contagens": contagens,
+        "identidade_resolvida": not nao_alcancaveis,
+        "nao_alcancaveis": nao_alcancaveis,
         "bloqueio_permanente": True,
         "at": now_brt().isoformat(),
     }

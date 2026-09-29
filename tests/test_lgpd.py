@@ -298,6 +298,7 @@ class TestRN017DireitoTitular(BaseLGPD):
         bloqueios = rules.avaliar_envio(texto="oi", igsid="9437", canal="email")
         self.assertTrue(bloqueios, "bloqueio permanente não pode ser contornado por canal")
 
+
     def test_apagamento_deixa_prova_sem_o_identificador(self) -> None:
         self.preparar()
         rules.apagar_titular("9437", motivo="titular solicitou")
@@ -322,6 +323,119 @@ class TestRN017DireitoTitular(BaseLGPD):
         resultado = rules.apagar_titular("nunca-existiu")
         self.assertTrue(resultado["bloqueio_permanente"])
         self.assertEqual(resultado["contagens"]["lead_flags"], 0)
+
+# ===========================================================================
+# RN-017 / D2 — o direito do titular ALCANÇA as tabelas por `id_interno`
+# ===========================================================================
+
+class TestD2DireitoTitularAlcanceIdInterno(BaseLGPD):
+    """D2 do Documento Mestre v4 §45, corrigido em 29/09/2026.
+
+    `identidades`, `vinculos` e `ownership` não são chaveadas por `igsid` e
+    ficavam fora de `_TABELAS_COM_IGSID`. O pedido de eliminação era respondido
+    como cumprido e o mapa de identidade e o `documento_hash` de CPF ficavam no
+    banco. Este teste existe para provar que a linha sai — não para provar que a
+    função devolveu um dicionário bonito.
+    """
+
+    IGSID = "778899"
+    ID_INTERNO = "uuid-d2-0001"
+
+    def preparar_identidade(self) -> None:
+        """Grava uma identidade real e as três tabelas que dependem dela."""
+        import vinculo_resolver as resolver
+
+        with rules.db() as conn:
+            conn.execute(
+                "INSERT INTO identidades "
+                "(id_interno, plataforma, id_externo, namespace_id, criado_em, atualizado_em) "
+                "VALUES (?,?,?,?,?,?)",
+                (self.ID_INTERNO, "instagram", self.IGSID, f"ig:{self.IGSID}",
+                 "2026-09-01T00:00:00-03:00", "2026-09-01T00:00:00-03:00"),
+            )
+            conn.execute(
+                "INSERT INTO vinculos (id_interno, tipo, documento_hash, plataforma_origem, "
+                "verificado_em) VALUES (?,?,?,?,?)",
+                (self.ID_INTERNO, "responsavel_financeiro", "hash-cpf-abc123", "instagram",
+                 "2026-09-01T00:00:00-03:00"),
+            )
+            conn.execute(
+                "INSERT INTO ownership (id_interno, fonte, canal, reservado_em, expira_em, "
+                "estado, trace_id) VALUES (?,?,?,?,?,?,?)",
+                (self.ID_INTERNO, "clint", "whatsapp", "2026-09-01T00:00:00-03:00",
+                 "2026-09-01T00:05:00-03:00", "resolvido", None),
+            )
+        self.assertIsNotNone(resolver.carregar_identidade_por_namespace(f"ig:{self.IGSID}"))
+
+    def linhas_por_id_interno(self, tabela: str) -> list[dict]:
+        with rules.db() as conn:
+            return [
+                dict(r) for r in conn.execute(
+                    f"SELECT * FROM {tabela} WHERE id_interno = ?", (self.ID_INTERNO,)
+                ).fetchall()
+            ]
+
+    def test_exportar_alcanca_as_tres_tabelas(self) -> None:
+        self.preparar_identidade()
+        dados = rules.exportar_titular(self.IGSID)
+        self.assertTrue(dados["identidade_resolvida"])
+        self.assertEqual(len(dados["tabelas"]["identidades"]), 1)
+        self.assertEqual(len(dados["tabelas"]["vinculos"]), 1)
+        self.assertEqual(len(dados["tabelas"]["ownership"]), 1)
+
+    def test_nao_incluido_nao_declara_mais_cegueira_que_nao_existe(self) -> None:
+        """Acompanhante (a) da D2: o campo que declara a cegueira não pode
+        continuar Declarando uma cegueira que foi corrigida."""
+        self.preparar_identidade()
+        dados = rules.exportar_titular(self.IGSID)
+        for tabela in ("identidades", "vinculos", "ownership"):
+            self.assertNotIn(
+                tabela, dados["nao_incluido"],
+                f"{tabela} agora é alcançável e não pode ser declarada como cegueira",
+            )
+        # E o que é realmente não-linkável por igsid continua declarado, com motivo.
+        for tabela in ("private_replies", "processed", "moderacao_aprovacoes"):
+            self.assertIn(tabela, dados["nao_incluido"])
+            self.assertTrue(dados["nao_incluido_motivo"].get(tabela), "motivo ausente")
+
+    def test_apagar_realmente_remove_as_tres_tabelas(self) -> None:
+        """O teste de fumaça da D2: a linha tem de SAIR do banco."""
+        self.preparar_identidade()
+        resultado = rules.apagar_titular(self.IGSID, motivo="direito ao esquecimento")
+
+        for tabela in ("vinculos", "ownership", "identidades"):
+            with self.subTest(tabela=tabela):
+                self.assertEqual(self.linhas_por_id_interno(tabela), [],
+                                 f"{tabela} sobreviveu ao apagamento do titular")
+                self.assertEqual(resultado["contagens"][tabela], 1,
+                                 f"{tabela} nao foi contada como apagada")
+        self.assertEqual(resultado["nao_alcancaveis"], [])
+        self.assertTrue(resultado["identidade_resolvida"])
+
+    def test_apagar_preserva_o_bloqueio_permanente(self) -> None:
+        """Acompanhante: apagar o mapa de identidade não pode destravar o recontato."""
+        self.preparar_identidade()
+        rules.apagar_titular(self.IGSID)
+        self.assertTrue(rules.bloqueio_permanente_ativo(self.IGSID))
+        self.assertEqual(len(self.linhas("bloqueios_permanentes")), 1)
+        self.assertEqual(
+            self.linhas("bloqueios_permanentes")[0]["igsid_hash"],
+            hashlib.sha256(self.IGSID.encode("utf-8")).hexdigest(),
+        )
+
+    def test_relatorio_diz_quando_nao_foi_alcancado(self) -> None:
+        """Acompanhante (b) da D2: contagem 0 por 'não alcançado' não pode
+        aparecer como se fosse 'não havia nada'."""
+        rules.registrar_flag("sem-ide", "reclamacao", "P1")  # igsid sem identidade
+        resultado = rules.apagar_titular("sem-ide")
+        self.assertFalse(resultado["identidade_resolvida"])
+        self.assertEqual(
+            sorted(resultado["nao_alcancaveis"]),
+            ["identidades", "ownership", "vinculos"],
+        )
+        # E o dado por igsid foi apagado de verdade, mesmo sem identidade.
+        self.assertEqual(resultado["contagens"]["lead_flags"], 1)
+
 
 
 # ===========================================================================

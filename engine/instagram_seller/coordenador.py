@@ -343,9 +343,21 @@ def verificar_canal(id_interno: str, canal: str) -> Optional[Ownership]:
 def limpar_expirados() -> int:
     """Remove reservas expiradas.
 
-    Pode ser chamada periodicamente (ex: tarefa agendada ou maintenance loop).
-    As reservas expiradas sao automaticamente ignoradas por `verificar_canal`
-    e `reservar_canal` — esta funcao faz a limpeza assincrona do banco.
+    Roda dentro do expurgo de 24h (`rules.expurgar_se_preciso` ->
+    `rules.expurgar_expirados`, ligado em 29/09/2026 — defeito D3 do Documento
+    Mestre v4). Antes disso a funcao nao tinha chamador em runtime: a reserva
+    expirava no relogio e a linha nunca era removida.
+
+    **O filtro por `estado` foi removido de proposito.** Ele existia como
+    `estado = 'contato_em_andamento'` e impedia a remocao de reservas em estado
+    final (`resolvido`/`abandonado`) — que sao linha morta segurando o
+    `(id_interno, canal)`, a chave primaria. A reserva vencida nao tem motivo para
+    sobreviver, qualquer que seja o estado: `verificar_canal` ja devolve `None`
+    para estado terminal antes mesmo de olhar a expiracao, entao a linha nao
+    protege ninguem, so ocupa espaco e atrasa a diagnose.
+
+    Isto nao e obrigacao de LGPD e nao e prazo de guarda: e limpeza de recurso
+    efemero, cujo TTL ja esta na propria coluna `expira_em`.
 
     Returns:
         Quantidade de registros removidos.
@@ -353,7 +365,7 @@ def limpar_expirados() -> int:
     agora = _now_iso()
     with _rules_db() as conn:
         cur = conn.execute(
-            "DELETE FROM ownership WHERE expira_em < ? AND estado = 'contato_em_andamento'",
+            "DELETE FROM ownership WHERE expira_em < ?",
             (agora,),
         )
     count = cur.rowcount

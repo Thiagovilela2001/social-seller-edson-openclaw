@@ -258,6 +258,53 @@ class TestLimparExpirados(BaseCoordenador):
         count = coordenador.limpar_expirados()
         self.assertEqual(count, 0)
 
+    def test_limpa_reserva_vencida_em_estado_final(self) -> None:
+        """D3: sem o filtro por `estado`, reserva vencida em `resolvido`/
+        `abandonado` é linha morta segurando a PK `(id_interno, canal)`."""
+        coordenador.reservar_canal("uuid-c2", "ss", "whatsapp", ttl_seconds=5)
+        with rules.db() as conn:
+            conn.execute(
+                "UPDATE ownership SET estado = 'resolvido' WHERE id_interno = 'uuid-c2'"
+            )
+        time.sleep(5.2)
+        self.assertEqual(coordenador.limpar_expirados(), 1)
+        with rules.db() as conn:
+            restantes = conn.execute(
+                "SELECT COUNT(*) AS n FROM ownership WHERE id_interno = 'uuid-c2'"
+            ).fetchone()["n"]
+        self.assertEqual(restantes, 0)
+
+
+class TestLimparExpiradosNoExpurgoDiario(BaseCoordenador):
+    """D3: `limpar_expirados()` não tinha chamador em runtime. Ligada ao expurgo
+    de 24h em 29/09/2026 (Documento Mestre v4 §45 D3)."""
+
+    def test_expurgo_de_24h_remove_ownership_vencida(self) -> None:
+        import time as _t
+
+        coordenador.reservar_canal("uuid-d3", "ss", "instagram", ttl_seconds=1)
+        with rules.db() as conn:
+            conn.execute(
+                "UPDATE ownership SET expira_em = ? WHERE id_interno = 'uuid-d3'",
+                ("2000-01-01T00:00:00-03:00",),
+            )
+        # Expurgo forcado: sem o registro de `manutencao` a primeira chamada roda.
+        agora = _t.time()
+        apagados = rules.expurgar_se_preciso(intervalo_horas=0, now=agora)
+        self.assertIn("ownership", apagados)
+        self.assertEqual(apagados["ownership"], 1)
+        with rules.db() as conn:
+            restantes = conn.execute(
+                "SELECT COUNT(*) AS n FROM ownership WHERE id_interno = 'uuid-d3'"
+            ).fetchone()["n"]
+        self.assertEqual(restantes, 0, "a reserva vencida ficou no banco apos o expurgo")
+
+    def test_expurgo_mantem_ownership_vigente(self) -> None:
+        coordenador.reservar_canal("uuid-d3-ok", "ss", "instagram", ttl_seconds=3600)
+        apagados = rules.expurgar_se_preciso(intervalo_horas=0)
+        self.assertEqual(apagados.get("ownership", 0), 0)
+        self.assertIsNotNone(coordenador.verificar_canal("uuid-d3-ok", "instagram"))
+
 
 # ---------------------------------------------------------------------------
 # integracao com avaliar_envio (RN-025)
