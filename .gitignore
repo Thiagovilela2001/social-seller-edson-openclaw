@@ -23,3 +23,26 @@ logs/
 __pycache__/
 *.py[cod]
 .pytest_cache/
+
+# ============================================================
+# RUNTIME DO OPENCLAW — estado do agente, nao entrega
+# ============================================================
+# O runtime cria e mantem estes arquivos no workspace (memoria de sessao,
+# diario de sonhos, e os modelos de IDENTITY/USER/AGENTS que ele preenche em
+# conversa). E estado local, nao contrato do agente: versionar isso congela a
+# memoria dele no repositorio.
+agent/workspace/AGENTS.md
+agent/workspace/IDENTITY.md
+agent/workspace/USER.md
+agent/workspace/DREAMS.md
+agent/workspace/memory/
+
+# ============================================================
+# PEDIDOS DE CREDENCIAL — artefato gerado, nao fonte
+# ============================================================
+# Reproduziveis a qualquer momento com
+# `python tools/pedir_credenciais.py --para <destinatario>`. Carregam detalhe
+# operacional da infra do cliente (host de tunel e o que responde em cada
+# rota) que e evidencia para quem vai agir, nao para o historico publico.
+docs/PEDIDO-CREDENCIAIS-*.md
+docs/PEDIDO-CREDENCIAIS-*.txt
