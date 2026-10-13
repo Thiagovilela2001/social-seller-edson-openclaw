@@ -317,6 +317,38 @@ class TestAlertaTelegramMinimo(IntakeBase):
         self.assertIn("morrer", d["briefing"])
 
 
+class TestAlertaEFilaMesmaPrioridade(IntakeBase):
+    """Alerta (Telegram) e caso (fila humana) são dois efeitos da MESMA decisão
+    de escalada — não podem divergir. Prova pelo caminho real do script, não só
+    por chamada direta de função."""
+
+    def test_prioridade_do_alerta_bate_com_a_do_caso(self) -> None:
+        d = self.saida(comentario("gente eu nao aguento mais, queria morrer", cid="cX"))
+        alerta = d["alerta_telegram"]
+        self.assertIsNotNone(alerta)
+
+        with rules.db(self.home / "estado.db") as conn:
+            caso = conn.execute(
+                "SELECT prioridade FROM fila_humana ORDER BY id DESC LIMIT 1"
+            ).fetchone()
+        self.assertIsNotNone(caso)
+        self.assertEqual(alerta["prioridade"], caso["prioridade"])
+
+    def test_sla_do_alerta_e_sempre_um_valor_conhecido(self) -> None:
+        for texto, cid in (
+            ("gente eu nao aguento mais, queria morrer", "c-p0"),
+            ("quero falar com uma pessoa", "c-p1"),
+        ):
+            with self.subTest(texto=texto):
+                d = self.saida(comentario(texto, cid=cid))
+                alerta = d["alerta_telegram"]
+                self.assertIsNotNone(alerta)
+                self.assertIn(alerta["prioridade"], ("P0", "P1", "P2", "P3"))
+                self.assertEqual(
+                    alerta["sla_minutos"], rules.SLA_MINUTOS[alerta["prioridade"]]
+                )
+
+
 class TestBriefingFalaDoMundoReal(IntakeBase):
     """Estes testes existem por um bug real, e o bug explica por que eles são aqui.
 

@@ -234,11 +234,18 @@ A0_RULES: tuple[A0Rule, ...] = (
             r"\bansiedade\b",
             r"\bbipolar\b",
             r"\bpsiquiatra\b",
-            r"\bpsicolog[oa]\b",
             r"\bmedicacao\b",
             r"\bantidepressivo\b",
             r"\btomo remedio\b",
             r"\bdiagnostico\b",
+        ),
+        corroborativos=(
+            # "minha psicóloga me indicou esse livro" é menção banal (parecer
+            # OpenClaw, F07): ter psicóloga não é crise. Só escala com outro
+            # sinal — outro corroborativo, ou um decisivo da lista acima.
+            r"\bpsicolog[oa]\b",
+            # Mesma natureza: "fazer terapia" é autocuidado comum, não crise.
+            r"\bterapia\b",
         ),
     ),
     A0Rule(
@@ -260,7 +267,6 @@ A0_RULES: tuple[A0Rule, ...] = (
         human_label="JURÍDICO — escalar imediatamente, não responder por conta",
         patterns=(
             r"\bprocon\b",
-            r"\bprocess[oa]r?\b",
             r"\badvogad[oa]\b",
             r"\bjustica\b",
             r"\bjudicial\b",
@@ -270,6 +276,40 @@ A0_RULES: tuple[A0Rule, ...] = (
             r"\bnao vou deixar barato\b",
             r"\bacao judicial\b",
             r"\bpequenas causas\b",
+            # Ameaça de processo por INTENÇÃO: "vou/vamos/quero/queremos/penso em/
+            # pensando em" + até duas palavras + "processar" (sonda adversarial 2,
+            # F07). Cobre 1ª pessoa do singular E do plural — "vamos processar
+            # vocês" ameaça tanto quanto "vou processar vocês" — com folga para
+            # "vou te processar" / "vou já processar". NÃO casa 3ª pessoa: "vocês
+            # vão processar meu pedido quando?" tem sujeito "vocês"/"vão", que não
+            # está na lista de alternativas — quem fala não é quem ameaça.
+            r"\b(vou|vamos|quero|queremos|penso em|pensando em)\s+(\w+\s+){0,2}processar\b",
+            # Ameaça por ENQUADRAMENTO com o substantivo "processo" ao lado do
+            # verbo de instauração ("vou abrir um processo", "vamos entrar com um
+            # processo") — inequívoco mesmo sem "vou" na frente, porque o verbo de
+            # abertura já carrega a intenção. NÃO casa a pergunta comercial sobre o
+            # substantivo isolado ("qual o processo pra comprar?"): falta o verbo.
+            r"\b(abrir|entrar com) (um |o )?processo\b",
+            # Mesma ameaça por enquadramento quando vem como "levar isso pro
+            # processo" em vez de "abrir"/"entrar com". Não casa menção neutra ao
+            # substantivo sem o verbo "levar" na frente.
+            r"\blevar isso (pro|pra|para o) processo\b",
+            # Ameaça por CONSEQUÊNCIA prevista: "isso vai dar/virar processo". Não
+            # casa pergunta logística ("qual o processo de troca/entrega"), que não
+            # tem "vai dar"/"vai virar" na frente.
+            r"\bisso vai (dar|virar) processo\b",
+        ),
+        corroborativos=(
+            # "qual o processo pra comprar?" / "como funciona o processo de
+            # entrega?" / "vocês vão processar meu pedido?" (parecer OpenClaw,
+            # F07): o SUBSTANTIVO "processo" e o verbo "processar" sem ameaça de
+            # 1ª pessoa são vocabulário comercial comum, não ameaça. Só escalam
+            # com outro sinal — outro corroborativo, ou um decisivo da lista acima
+            # (inclui as construções de ameaça, que são decisivas por si só).
+            r"\bprocess[oa]r?\b",
+            # "isso é ilegal" também é hipérbole comum de reclamação; junto com
+            # "processo"/"processar" deixa de ser ambíguo.
+            r"\bisso e ilegal\b",
         ),
     ),
     A0Rule(
@@ -2362,17 +2402,26 @@ def alerta_minimo(
     bruto saem daqui; quem precisar do texto abre o caso (fila humana, por
     `caso_id`) ou a conversa no Instagram — acesso por REFERÊNCIA, não por
     conteúdo dentro do alerta.
+
+    A prioridade NÃO vem de `decisao.severity`: vem de `pior_severidade(decisao.flags)`,
+    a MESMA chamada que `instagram-intake.py` usa para abrir o caso na fila humana
+    (`abrir_caso_humano(prioridade=...)`). São dois efeitos (o caso e o alerta) da
+    mesma decisão; se cada um calculasse a prioridade do seu jeito, um dia os dois
+    cálculos divergem — e aí o alerta informa um prazo que não é o prazo do caso.
+    Derivar os dois da mesma função é o que torna essa divergência impossível, não
+    só incomum. Bônus: `pior_severidade` só devolve P0..P3 (nunca "-"), então
+    `sla_minutos` nunca cai no fallback silencioso de P3 por valor desconhecido.
     """
     flags = ",".join(sorted(getattr(h, "flag", "") for h in (decisao.flags or []))) or "-"
-    severidade = getattr(decisao, "severity", "") or ""
+    prioridade = pior_severidade(decisao.flags)
     return {
         "caso_id": caso_id,
         "interaction_id": interaction_id,
         "categoria": getattr(decisao, "motivo", "") or "-",
-        "prioridade": severidade or "-",
+        "prioridade": prioridade,
         "flags": flags,
         "canal": canal or "-",
-        "sla_minutos": sla_minutos(severidade),
+        "sla_minutos": sla_minutos(prioridade),
     }
 
 

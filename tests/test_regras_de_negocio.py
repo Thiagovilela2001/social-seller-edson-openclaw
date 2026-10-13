@@ -234,6 +234,195 @@ class TestRN004DadosDeTerceiro(BaseRN):
 
 
 # ===========================================================================
+# F07 (parecer OpenClaw) — calibragem de `juridico` e `saude_mental`.
+#
+# "processo"/"processar" e "psicólogo/a" são ambíguos sozinhos — vocabulário
+# comercial e menção banal, respectivamente — e por isso virão corroborativos
+# (precisam de companhia: outro corroborativo ou um padrão decisivo). O erro
+# caro continua sendo o falso negativo: cada regra mantém pelo menos um
+# caminho DECISIVO que escala sozinho em caso real.
+# ===========================================================================
+
+class TestF07CalibragemJuridicoESaudeMental(BaseRN):
+    def test_processo_em_frase_comercial_nao_escala(self) -> None:
+        """Exemplo literal do parecer: pergunta de compra, não ameaça."""
+        for texto in (
+            "qual o processo pra comprar?",
+            "como funciona o processo de entrega?",
+        ):
+            with self.subTest(texto=texto):
+                flags = [h.flag for h in rules.detect_a0(texto)]
+                self.assertNotIn("juridico", flags, texto)
+
+    def test_psicologa_em_mencao_banal_nao_escala(self) -> None:
+        """Exemplo literal do parecer: cita a profissional, não está em crise."""
+        flags = [h.flag for h in rules.detect_a0("minha psicologa me indicou esse livro")]
+        self.assertNotIn("saude_mental", flags)
+
+    def test_juridico_ainda_escala_sozinho_em_ameaca_real(self) -> None:
+        """A calibragem não pode apagar o caminho decisivo: ameaça inequívoca
+        continua escalando sem precisar de "processo"."""
+        for texto in ("vou no procon", "vou chamar um advogado", "isso vai pra justica"):
+            with self.subTest(texto=texto):
+                d = rules.evaluate_intake({"igsid": f"jur:{texto}", "text": texto})
+                self.assertEqual(d.acao, "escalar", texto)
+                self.assertEqual(d.severity, "P0", texto)
+                self.assertIn("juridico", [h.flag for h in d.flags], texto)
+
+    def test_saude_mental_ainda_escala_sozinho_em_crise_real(self) -> None:
+        """Idem: crise declarada continua escalando sem precisar de "psicóloga"."""
+        for texto in ("sou bipolar e preciso de ajuda", "tive uma crise de panico agora"):
+            with self.subTest(texto=texto):
+                d = rules.evaluate_intake({"igsid": f"sm:{texto}", "text": texto})
+                self.assertEqual(d.acao, "escalar", texto)
+                self.assertEqual(d.severity, "P0", texto)
+                self.assertIn("saude_mental", [h.flag for h in d.flags], texto)
+
+    def test_processo_escala_quando_acompanhado_de_outro_corroborativo(self) -> None:
+        """Fronteira: "processo" sozinho não escala (teste acima) — mas junto de
+        outro sinal ambíguo ("isso é ilegal"), os dois juntos deixam de ser
+        ambíguos e a regra volta a escalar. Frase sem nenhum verbo de ameaça
+        ("vou processar" etc.) para isolar o caminho dos DOIS corroborativos."""
+        d = rules.evaluate_intake(
+            {"igsid": "jur-acompanhado", "text": "isso e ilegal, que processo chato"}
+        )
+        self.assertEqual(d.acao, "escalar")
+        self.assertIn("juridico", [h.flag for h in d.flags])
+
+    def test_ameaca_de_processar_escala_sozinha(self) -> None:
+        """Ameaça real (verbo de intenção em 1a pessoa + "processar") é decisiva
+        por si só — não é o sentido comercial de "processo" (parecer OpenClaw,
+        F07). Falso negativo aqui é pior que falso positivo: uma ameaça que o
+        agente responde sozinho custa mais que uma frase comercial que o time
+        olha à toa."""
+        for texto in (
+            "vou te processar",
+            "vou processar voces, isso e roubo",
+            "to pensando em processar a loja",
+        ):
+            with self.subTest(texto=texto):
+                d = rules.evaluate_intake({"igsid": f"ameaca:{texto}", "text": texto})
+                self.assertEqual(d.acao, "escalar", texto)
+                self.assertEqual(d.severity, "P0", texto)
+                self.assertIn("juridico", [h.flag for h in d.flags], texto)
+
+    def test_processo_no_sentido_logistico_nao_escala(self) -> None:
+        """Fronteira: "vocês vão processar" é sujeito de terceiro falando do
+        PEDIDO, não ameaça em 1a pessoa — não pode casar o padrão de ameaça."""
+        flags = [h.flag for h in rules.detect_a0("voces vao processar meu pedido quando?")]
+        self.assertNotIn("juridico", flags)
+
+    def test_processo_acompanhado_de_advogado_escala(self) -> None:
+        """"Processo" (ambíguo) junto de outro sinal jurídico também escala —
+        aqui o outro sinal já é decisivo ("advogado") por conta própria."""
+        d = rules.evaluate_intake(
+            {
+                "igsid": "jur-processo-advogado",
+                "text": "vou levar isso pro processo, ja falei com meu advogado",
+            }
+        )
+        self.assertEqual(d.acao, "escalar")
+        self.assertIn("juridico", [h.flag for h in d.flags])
+
+    def test_ameaca_de_processo_escala_em_variantes_nao_cobertas_antes(self) -> None:
+        """Sonda adversarial 2 (F07): a primeira correção só casava "vou" + verbo
+        solto em 1a pessoa do singular. Ficaram de fora a 1a pessoa do plural, o
+        enquadramento com o substantivo ("abrir"/"entrar com"/"levar isso pro
+        processo") e a ameaça por consequência ("isso vai dar processo"). Cada
+        uma das seis frases abaixo é uma forma real de ameaça que escapava."""
+        for texto in (
+            "vamos processar voces",
+            "vou entrar com um processo contra voces",
+            "vou abrir um processo",
+            "vou levar isso pro processo",
+            "penso em processar voces",
+            "isso vai dar processo",
+        ):
+            with self.subTest(texto=texto):
+                d = rules.evaluate_intake({"igsid": f"ameaca2:{texto}", "text": texto})
+                self.assertEqual(d.acao, "escalar", texto)
+                self.assertEqual(d.severity, "P0", texto)
+                self.assertIn("juridico", [h.flag for h in d.flags], texto)
+
+    def test_processo_comercial_ou_logistico_nao_escala_sozinho(self) -> None:
+        """As mesmas variantes de enquadramento/consequência não podem nascer de
+        vocabulário puramente comercial ou logístico — só o verbo de ameaça ao
+        lado do substantivo é que decide."""
+        for texto in (
+            "preciso saber o processo de troca",
+            "qual o processo pra fazer o pedido",
+        ):
+            with self.subTest(texto=texto):
+                flags = [h.flag for h in rules.detect_a0(texto)]
+                self.assertNotIn("juridico", flags, texto)
+
+    def test_processo_comercial_com_sinal_juridico_real_escala(self) -> None:
+        """Fronteira: o substantivo "processo" em sentido comercial, na MESMA
+        frase de um sinal jurídico real ("advogado"), escala — o sinal real
+        decide, não o vocabulário comercial ao lado dele."""
+        d = rules.evaluate_intake(
+            {
+                "igsid": "jur-fronteira-advogado",
+                "text": "isso e um absurdo, vou ver o processo com meu advogado",
+            }
+        )
+        self.assertEqual(d.acao, "escalar")
+        self.assertIn("juridico", [h.flag for h in d.flags])
+
+    def test_psicologa_escala_quando_acompanhada_de_outro_corroborativo(self) -> None:
+        """Mesma lógica para saude_mental: "psicóloga" + "terapia" juntos."""
+        d = rules.evaluate_intake(
+            {
+                "igsid": "sm-acompanhado",
+                "text": "minha psicologa disse que eu deveria fazer terapia",
+            }
+        )
+        self.assertEqual(d.acao, "escalar")
+        self.assertIn("saude_mental", [h.flag for h in d.flags])
+
+
+# ===========================================================================
+# Alerta (Telegram) e caso (fila humana) são dois efeitos da MESMA decisão —
+# não podem calcular prioridade cada um do seu jeito. `alerta_minimo()` usava
+# `decisao.severity`; `abrir_caso_humano()` usa `pior_severidade(decisao.flags)`.
+# Hoje batem por coincidência; sem derivar os dois da mesma chamada, um caso
+# sem flag escalável um dia faria o alerta informar um prazo que não é o do
+# caso, sem avisar ninguém.
+# ===========================================================================
+
+class TestAlertaMinimoMesmaPrioridadeDoCaso(BaseRN):
+    def test_prioridade_do_alerta_e_pior_severidade_das_flags(self) -> None:
+        d = rules.evaluate_intake({"igsid": "u1", "text": "quero falar com uma pessoa"})
+        self.assertEqual(d.acao, "escalar")
+        alerta = rules.alerta_minimo(d)
+        self.assertEqual(alerta["prioridade"], rules.pior_severidade(d.flags))
+
+    def test_alerta_e_caso_tem_a_mesma_prioridade(self) -> None:
+        d = rules.evaluate_intake(
+            {"igsid": "u2", "text": "gente eu nao aguento mais, queria morrer"}
+        )
+        self.assertEqual(d.acao, "escalar")
+        prioridade_do_caso = rules.pior_severidade(d.flags)
+        caso = rules.abrir_caso_humano(igsid="u2", prioridade=prioridade_do_caso, motivo=d.motivo)
+        alerta = rules.alerta_minimo(d, caso_id=caso)
+
+        with rules.db() as conn:
+            linha = conn.execute(
+                "SELECT prioridade FROM fila_humana WHERE id = ?", (caso,)
+            ).fetchone()
+        self.assertEqual(alerta["prioridade"], linha["prioridade"])
+
+    def test_sla_do_alerta_nunca_cai_no_fallback_silencioso(self) -> None:
+        """`pior_severidade` só devolve P0..P3 — então `sla_minutos` nunca recebe,
+        no caminho do alerta, um valor desconhecido que cairia de volta em P3
+        sem avisar."""
+        d = rules.evaluate_intake({"igsid": "u3", "text": "vou no procon"})
+        alerta = rules.alerta_minimo(d)
+        self.assertIn(alerta["prioridade"], ("P0", "P1", "P2", "P3"))
+        self.assertEqual(alerta["sla_minutos"], rules.SLA_MINUTOS[alerta["prioridade"]])
+
+
+# ===========================================================================
 # RN-005 — opt-out é da pessoa, não do canal
 # ===========================================================================
 
