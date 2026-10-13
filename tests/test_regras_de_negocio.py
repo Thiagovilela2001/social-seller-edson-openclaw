@@ -421,6 +421,40 @@ class TestRN008Divulgacao(BaseRN):
 
 
 # ===========================================================================
+# F08 — identidade do SOUL.md coerente com o mecanismo de RN-008
+# (achado do parecer OpenClaw: SOUL.md proibia dizer que é automação, intake
+# divulga quando devido — a política em SOUL.md precisa cobrir os três modos)
+# ===========================================================================
+
+class TestF08IdentidadeCoerenteComRN008(unittest.TestCase):
+    """`agent/workspace/SOUL.md` é a cópia que o runtime do OpenClaw usa — não
+    pode descrever um modo e deixar os outros dois implícitos, e não pode, em
+    nenhum dos três, autorizar a persona a afirmar que é humana."""
+
+    def setUp(self) -> None:
+        caminho = RAIZ / "agent" / "workspace" / "SOUL.md"
+        self.soul = caminho.read_text(encoding="utf-8")
+        # Markdown quebra linha no meio de frase (ex.: "ser\nhumano") — a prosa
+        # em si não muda, então achar substring exige ignorar essa quebra.
+        self.soul_sem_quebra = " ".join(self.soul.split())
+
+    def test_os_tres_modos_estao_escritos_sem_ambiguidade(self) -> None:
+        for modo in rules.MODOS_DIVULGACAO:
+            with self.subTest(modo=modo):
+                self.assertIn(f"`{modo}`", self.soul)
+
+    def test_modo_decidido_nao_fica_implicito(self) -> None:
+        self.assertIn(f"`{rules.DIVULGACAO_PADRAO}`", self.soul)
+        self.assertIn("o modo deste agente", self.soul)
+
+    def test_referencia_a_regra_de_codigo_sem_reescrever_o_id(self) -> None:
+        self.assertIn(rules.RN_DIVULGACAO_AUTOMACAO, self.soul)
+
+    def test_nunca_autoriza_afirmar_ser_humano(self) -> None:
+        self.assertIn("nunca afirmo ser humano", self.soul_sem_quebra)
+
+
+# ===========================================================================
 # RN-009 — matriz de autonomia
 # ===========================================================================
 
