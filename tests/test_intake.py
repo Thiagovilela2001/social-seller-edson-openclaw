@@ -269,6 +269,54 @@ class TestRegistroDaInteracao(IntakeBase):
         self.assertEqual(linha["interaction_id"], d["auditoria"]["interaction_id"])
 
 
+class TestAlertaTelegramMinimo(IntakeBase):
+    """F09 — o caminho de alerta (Telegram) não pode levar o texto da pessoa nem
+    o identificador bruto. `briefing` continua levando os dois, mas é para o
+    AGENTE decidir a resposta; `alerta_telegram` é o único conteúdo que o
+    sidecar instrui a mandar para o time (ver PROMPT_ROTA em ingress/sidecar.py).
+    """
+
+    TEXTO_DA_CRISE = "gente eu nao aguento mais, queria morrer"
+
+    def test_escalada_gera_alerta_minimo(self) -> None:
+        d = self.saida(comentario(self.TEXTO_DA_CRISE))
+        self.assertEqual(d["diretiva"], "escalar")
+        alerta = d["alerta_telegram"]
+        self.assertIsNotNone(alerta)
+        self.assertEqual(alerta["categoria"], "crise_emocional")
+        self.assertEqual(alerta["prioridade"], "P0")
+        self.assertEqual(alerta["canal"], "comentário público")
+        self.assertIsInstance(alerta["caso_id"], int)
+        self.assertEqual(alerta["interaction_id"], d["auditoria"]["interaction_id"])
+
+    def test_alerta_nao_leva_texto_da_pessoa(self) -> None:
+        d = self.saida(comentario(self.TEXTO_DA_CRISE))
+        alerta = d["alerta_telegram"]
+        despejo = json.dumps(alerta, ensure_ascii=False)
+        self.assertNotIn("morrer", despejo)
+        self.assertNotIn("aguento", despejo)
+        self.assertNotIn(self.TEXTO_DA_CRISE, despejo)
+
+    def test_alerta_nao_leva_identificador_bruto_nem_username(self) -> None:
+        d = self.saida(comentario(self.TEXTO_DA_CRISE))
+        alerta = d["alerta_telegram"]
+        self.assertNotIn("igsid", alerta)
+        self.assertNotIn("username", alerta)
+        despejo = json.dumps(alerta, ensure_ascii=False)
+        self.assertNotIn(FULANO, despejo)
+
+    def test_sem_escalada_nao_ha_alerta(self) -> None:
+        d = self.saida(comentario("quanto custa o livro?"))
+        self.assertEqual(d["diretiva"], "responder")
+        self.assertIsNone(d["alerta_telegram"])
+
+    def test_briefing_continua_com_texto_para_o_agente_responder(self) -> None:
+        """O que F09 proíbe é o texto ir para o ALERTA, não para o agente: sem o
+        texto literal no `briefing`, o agente não teria o que responder."""
+        d = self.saida(comentario(self.TEXTO_DA_CRISE))
+        self.assertIn("morrer", d["briefing"])
+
+
 class TestBriefingFalaDoMundoReal(IntakeBase):
     """Estes testes existem por um bug real, e o bug explica por que eles são aqui.
 

@@ -264,6 +264,8 @@ Como ler:
     responder_com_cautela -> responda UMA vez, sem rebater
     escalar               -> fila humana: use so o protocolo aprovado
     encerrar              -> agradeca em uma linha e encerre
+- Quando `diretiva` for `escalar`, o payload traz `alerta_telegram`: e TUDO que
+  pode ir para o time (referencia do caso, categoria, prioridade, SLA, canal).
 - `proibicoes` e proibicao dura, mesmo que pareca boa ideia.
 - `diretivas_obrigatorias` e obrigacao, nao sugestao.
 - `estado` e o mundo real, nao sugestao: `kill_switch_ativo` (se for true, NENHUM
@@ -296,7 +298,11 @@ conversa do comentario ao Direct use ig_private_reply (cota unica por comentario
 envio passa pelo guardrail do motor: se ele recusar, NAO insista — registre e escale.
 
 Para avisar o time numa escalada, use a tool `message` no canal telegram com o
-`briefing` e o `interaction_id`. Nao mencione preco, oferta nem proximo passo.
+conteudo de `alerta_telegram` (referencia do caso, categoria, prioridade, SLA e
+canal) e SOMENTE isso: NUNCA inclua `briefing` nem `evento.texto` nessa mensagem
+de alerta. O time abre o caso completo pela referencia (caso_id/interaction_id),
+nao pelo conteudo do alerta (RN-014/RN-018). Nao mencione preco, oferta nem
+proximo passo.
 
 Se `diretiva` for `encerrar`, envie a despedida uma unica vez e nao volte a contatar.
 

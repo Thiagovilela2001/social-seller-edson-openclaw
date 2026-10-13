@@ -232,10 +232,20 @@ def _normalizar(payload: dict) -> list[dict]:
     return eventos
 
 
+def _canal_legivel(evento: dict) -> str:
+    return "comentário público" if evento["tipo_evento"] == "comentario" else "Direct"
+
+
 def _briefing(evento: dict, decisao: rules.Decision) -> str:
     """Resumo em português do que chegou e do que foi decidido — o agente lê isto
-    primeiro, para não depender de interpretar JSON aninhado."""
-    canal = "comentário público" if evento["tipo_evento"] == "comentario" else "Direct"
+    primeiro, para não depender de interpretar JSON aninhado.
+
+    ATENÇÃO: este texto leva o conteúdo literal da pessoa (`decisao.text`) para
+    o AGENTE decidir como responder — isso é necessário aqui. O que NÃO pode
+    acontecer é este briefing ir para o Telegram: o alerta ao time usa
+    `rules.alerta_minimo`, que não carrega texto nem identificador (RN-014/018).
+    """
+    canal = _canal_legivel(evento)
     linhas = [
         f"[{canal}] @{evento.get('username') or evento.get('igsid') or 'desconhecido'}",
         f"Texto: {decisao.text or '(sem texto)'}",
@@ -326,6 +336,7 @@ def main() -> int:
 
         igsid = evento.get("igsid") or ""
         avisos_expurgo = ""
+        caso_id: Optional[int] = None
 
         # Persiste as flags A0 do lead. Sem isto, a flag morre no fim do turno e
         # o agente pode mandar preço para alguém em crise no turno seguinte.
@@ -341,7 +352,7 @@ def main() -> int:
         # caso diz o que aconteceu (motivo, severidade, flags); não repete o que a
         # pessoa escreveu. Quem precisa do texto abre a conversa no Instagram.
         if decisao.acao == "escalar" and igsid:
-            rules.abrir_caso_humano(
+            caso_id = rules.abrir_caso_humano(
                 igsid=igsid,
                 prioridade=rules.pior_severidade(decisao.flags),
                 motivo=decisao.motivo,
@@ -359,6 +370,21 @@ def main() -> int:
 
         interaction_id = f"ig:{evento['tipo_evento']}:{decisao.event_id}"
         decisao.interaction_id = interaction_id
+
+        # F09 — o alerta que vai para o Telegram (sidecar.py/PROMPT_ROTA) usa SÓ
+        # isto, nunca o `briefing`: referência do caso, categoria, prioridade e
+        # canal, sem o texto da pessoa e sem identificador bruto (RN-014/018).
+        alerta_telegram = (
+            rules.alerta_minimo(
+                decisao,
+                canal=_canal_legivel(evento),
+                caso_id=caso_id,
+                interaction_id=interaction_id,
+            )
+            if decisao.acao == "escalar"
+            else None
+        )
+
         rules.record_interaction(
             interaction_id=interaction_id,
             igsid=igsid,
@@ -395,6 +421,9 @@ def main() -> int:
     igsid_evento = evento.get("igsid") or ""
     saida = {
         "briefing": _briefing(evento, decisao),
+        # F09 — único conteúdo que pode ir para o alerta do Telegram quando
+        # `diretiva` for "escalar". `None` nos demais casos: não há o que alertar.
+        "alerta_telegram": alerta_telegram,
         "diretiva": decisao.acao,
         "decisao": decisao.to_dict(),
         "diretivas_obrigatorias": directivas,

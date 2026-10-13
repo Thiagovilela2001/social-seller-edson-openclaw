@@ -2349,6 +2349,33 @@ def resumo_para_fila(decisao) -> str:
     )
 
 
+def alerta_minimo(
+    decisao, *, canal: str = "", caso_id: Optional[int] = None, interaction_id: str = "",
+) -> dict:
+    """O mínimo que o alerta de escalada pode levar ao Telegram (RN-014/RN-018).
+
+    Era aqui, no caminho de alerta, que a minimização anterior (banco de dados)
+    não chegava: `_briefing` carrega o texto literal da pessoa para o AGENTE
+    decidir como responder — e é o `_briefing` que a instrução antiga mandava
+    repassar ao Telegram. O time não precisa ler a conversa para agir, precisa
+    de referência, categoria, prioridade e canal. Nem texto nem identificador
+    bruto saem daqui; quem precisar do texto abre o caso (fila humana, por
+    `caso_id`) ou a conversa no Instagram — acesso por REFERÊNCIA, não por
+    conteúdo dentro do alerta.
+    """
+    flags = ",".join(sorted(getattr(h, "flag", "") for h in (decisao.flags or []))) or "-"
+    severidade = getattr(decisao, "severity", "") or ""
+    return {
+        "caso_id": caso_id,
+        "interaction_id": interaction_id,
+        "categoria": getattr(decisao, "motivo", "") or "-",
+        "prioridade": severidade or "-",
+        "flags": flags,
+        "canal": canal or "-",
+        "sla_minutos": sla_minutos(severidade),
+    }
+
+
 def expurgar_expirados(now: Optional[float] = None) -> dict[str, int]:
     """Apaga o que passou do prazo de guarda (RN-015). Idempotente.
 

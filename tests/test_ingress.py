@@ -163,6 +163,18 @@ class TestTurno(AmbienteIngress):
         self.assertIn("NO_REPLY", turno["message"])
 
 
+class TestInstrucaoDeAlerta(AmbienteIngress):
+    """F09 — a instrução que o sidecar manda ao agente não pode pedir o
+    `briefing` (texto do cliente + identificador) para a mensagem de Telegram.
+    Precisa apontar para `alerta_telegram`, que é minimizado no intake."""
+
+    def test_instrucao_usa_alerta_minimo_nao_o_briefing(self) -> None:
+        self.assertIn("alerta_telegram", sidecar.PROMPT_ROTA)
+        trecho_telegram = sidecar.PROMPT_ROTA[sidecar.PROMPT_ROTA.index("avisar o time") :]
+        self.assertIn("NUNCA inclua", trecho_telegram)
+        self.assertIn("briefing", trecho_telegram)  # citado só para proibir
+
+
 class TestOrdenacaoPorRemetente(AmbienteIngress):
     def test_serializa_sem_perder_evento(self) -> None:
         entregues: list[str] = []
